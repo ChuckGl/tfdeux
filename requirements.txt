@@ -1,7 +1,9 @@
+aioblescan
 aiofiles
 aiohttp
-aioblescan
-ruamel.yaml
+flask
 rpi-lgpio
-spidev
+ruamel.yaml
 sockjs
+spidev
+

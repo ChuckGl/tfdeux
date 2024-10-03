@@ -14,14 +14,18 @@ class DummyActor(Actor):
         self.power = 0
 
     def on(self):
-        self.updatePower(100.0)
+        self.updatePower(100)
     def off(self):
-        self.updatePower(0.0)
+        self.updatePower(0)
 
     def updatePower(self, power):
         self.power = power
-        notify(Event(source=self.name, endpoint='power', data=self.power))
-        logger.debug("%s: Setting power to %f"%(self.name, self.power))
+        if self.power == 0:
+            self.state = 'OFF'
+        else:
+            self.state = 'ON'
+        notify(Event(source=self.name, endpoint='power', data=int(self.power)))
+        logger.debug("Setting power to %d   %s: ** %s **"%(self.power, self.name.upper(), self.state))
 
     def getPower(self):
         return self.power

@@ -1,68 +1,70 @@
-# tfbrew.py
-# Backend for a yet another brewing application controlled by a Blynk frontend. Originally created by: hrafnkelle (Hrafnkell Eiríksson)
-#
-# Changelog:
-#  08-FEB-24: Part of fix for loop exception.  Think due to new OS or Python versions (Fix #1)
-#
-# Ver: 1.0
+# filename: tfbrew.py
 
-"""
-"""
-
-import sys, os
+import sys
+import os
 import importlib
 import logging
-
 import asyncio
 from aiohttp import web
 from ruamel.yaml import YAML
 
 import interfaces
 import controller
+import rigs
 import event
 from common import app, components
 
-yaml = YAML(typ='safe')   # default, if not specfied, is 'rt' (round-trip)
+yaml = YAML(typ='safe')
 configFile = 'config.yaml'
 if len(sys.argv) > 1:
     configFile = sys.argv[1]
-print("Using config from %s"%configFile)
-    
-config = yaml.load(open(configFile,mode='r'))
+print(f"Using config from {configFile}")
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(name)s:%(message)s', filename='tfbrew.log', filemode='w')
+config = yaml.load(open(configFile, mode='r'))
+
+logLevel = getattr(logging, config.get('logLevel', 'WARNING').upper(), logging.WARNING)
+logging.basicConfig(level=logLevel, format='%(asctime)s:%(levelname)s:%(name)s:%(message)s', filename='tfbrew.log', filemode='w+')
 logger = logging.getLogger(__name__)
-
 console = logging.StreamHandler()
 console.setLevel(config.get('consoleLoglevel', 'WARNING'))
 logging.getLogger('').addHandler(console)
+logging.getLogger('aiohttp.access').setLevel(logging.ERROR)  # Suppress access logs
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "plugins"))
 
 for conn in config['connections']:
-    (sendEvent, recvEvent) = conn.split('=>')
-    (sendComponent, sendType) = sendEvent.split('.')
-    (recvComponent, recvType) = recvEvent.split('.')
+    sendEvent, recvEvent = conn.split('=>')
+    sendComponent, sendType = sendEvent.split('.')
+    recvComponent, recvType = recvEvent.split('.')
     event.register(sendEvent, lambda event, rc=recvComponent, rt=recvType: components[rc].callback(rt, event))
 
 for componentType in ['sensors', 'actors', 'extensions']:
     for component in config[componentType]:
         for name, attribs in component.items():
-            logging.info("setting up %s"%name)
-            plugin = importlib.import_module('plugins.%s'%attribs['plugin'])
+            logger.info(f"Setting up {componentType}: {name}")
+            plugin = importlib.import_module(f'plugins.{attribs["plugin"]}')
             components[name] = plugin.factory(name, attribs)
 
 for ctrl in config['controllers']:
     for name, attribs in ctrl.items():
-        logger.info("setting up %s"%name)
-        logicPlugin = importlib.import_module('plugins.%s'%attribs['plugin'])
+        logger.info(f"Setting up controller: {name}")
+        logicPlugin = importlib.import_module(f'plugins.{attribs["plugin"]}')
         logic = logicPlugin.factory(name, attribs['logicCoeffs'])
         sensor = components[attribs['sensor']]
         actor = components[attribs['actor']]
-        agitator = components.get(attribs.get('agitator', ''),None)
+        agitator = components.get(attribs.get('agitator', ''), None)
         initialSetpoint = attribs.get('initialSetpoint', 67.0)
         initiallyEnabled = True if attribs.get('initialState', 'on') == 'on' else 'off'
         components[name] = controller.Controller(name, sensor, actor, logic, agitator, initialSetpoint, initiallyEnabled)
+
+for rig in config['rigs']:
+    for name, attribs in rig.items():
+        logger.info(f"Setting up rig: {name}")
+        assignedCtrl = attribs.get('assignedCtrls', [])
+        logger.info(f"Controllers in Rig {name}: {assignedCtrl}")
+        controllers = [components[ctrl_name] for ctrl_name in assignedCtrl]
+        rigMgr = rigs.Rig(name, controllers)
+        components[name] = rigMgr
 
 async def start_background_tasks(app):
     pass
@@ -73,7 +75,7 @@ async def cleanup_background_tasks(app):
 app.on_startup.append(start_background_tasks)
 app.on_cleanup.append(cleanup_background_tasks)
 
-isWebUIenabled = config.get('enableWebUI',False)
+isWebUIenabled = config.get('enableWebUI', False)
 async def rootRouteHandler(request):
     if isWebUIenabled:
         return web.HTTPFound('/static/index.html')

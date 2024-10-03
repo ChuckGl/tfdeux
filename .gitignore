@@ -9,3 +9,4 @@ __pycache__
 pip-selfcheck.json
 .envrc
 .venc
+.venv

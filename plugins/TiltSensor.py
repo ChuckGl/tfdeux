@@ -39,7 +39,7 @@ def factory(name, settings):
 
 # Conversion functions for various brewing calculations
 def to_celsius(fahrenheit):
-    return round((fahrenheit - 32.0) / 1.8, 2)
+    return Decimal(fahrenheit - 32.0).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) / Decimal(1.8)
 
 def to_brix(sg):
     sg = Decimal(sg)
@@ -68,7 +68,7 @@ class TiltSensor:
         self.color = color
         self.temp_offset = Decimal(tempcalbr).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         self.gravity_offset = Decimal(gravcalbr).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
-        self.start_gravity = Decimal(startgrav).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+        self.start_gravity = Decimal(startgrav).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
         self.sendtime = sendtime
         self.last_sendtime = datetime.datetime.min
         self.dev_id = 0
@@ -76,19 +76,20 @@ class TiltSensor:
         self.gravity_list = deque(maxlen=self.smoothing_window)
         self.temp_list = deque(maxlen=self.smoothing_window)
         self.last_value_received = datetime.datetime.now() - self._cache_expiry_seconds()
-        self.gravity = Decimal(0.0)
-        self.temp = Decimal(0.0)
+        self.lastTemp = Decimal(0.0).quantize(Decimal('0.1'))
+        self.lastGravity = Decimal(0.0).quantize(Decimal('0.001'))
+        self.lastABV = Decimal(0.0).quantize(Decimal('0.01'))
+        self.lastAtten = Decimal(0.0).quantize(Decimal('0.1'))
+        self.lastOG = Decimal(0.0).quantize(Decimal('0.0001'))
         self.rssi = 0
         self.tilt_pro = False
 
         try:
             self.sock = aiobs.create_bt_socket(self.dev_id)
-            print(f"Created Bluetooth socket")
+            logger.info("Created Bluetooth socket")
         except OSError as e:
             logger.error(f"Unable to create socket - {e}. Is there a Bluetooth adapter attached?")
-            while True:
-                time.sleep(60)
-            exit(1)
+            asyncio.get_event_loop().call_later(60, exit, 1)
 
         asyncio.get_event_loop().create_task(self.run())
 
@@ -107,16 +108,31 @@ class TiltSensor:
         self.temp_list.append(temp)
 
     @staticmethod
-    def _average_deque(d: deque) -> float:
+    def _average_deque(d: deque) -> Decimal:
         if not d:
-            return 0.0
-        return sum(d) / len(d)
+            return Decimal('0.0')
+        return Decimal(sum(d) / len(d))
 
     def smoothed_gravity(self) -> Decimal:
-        return Decimal(self._average_deque(self.gravity_list)).quantize(Decimal('.0001' if self.tilt_pro else '.001'))
+        return self._average_deque(self.gravity_list).quantize(Decimal('.0001' if self.tilt_pro else '.001'))
 
     def smoothed_temp(self) -> Decimal:
-        return Decimal(self._average_deque(self.temp_list)).quantize(Decimal('.1' if self.tilt_pro else '1.'))
+        return self._average_deque(self.temp_list).quantize(Decimal('.1' if self.tilt_pro else '1.'))
+
+    def temp(self):
+        return self.lastTemp
+
+    def gravity(self):
+        return self.lastGravity
+
+    def atten(self):
+        return self.lastAtten
+
+    def abv(self):
+        return self.lastABV
+
+    def ograv(self):
+        return self.lastOG
 
     async def run(self):
         event_loop = asyncio.get_running_loop()
@@ -127,11 +143,11 @@ class TiltSensor:
             ev = aiobs.HCI_Event()
             try:
                 ev.decode(data)
-            except:
+            except Exception as e:
+                logger.error(f"Failed to decode BLE event: {e}")
                 return False
 
             if ev.raw_data is None:
-                #logger.debug("Event has no raw data")
                 return False
 
             raw_data_hex = ev.raw_data.hex()
@@ -156,31 +172,43 @@ class TiltSensor:
 
                 if gravity >= 5000:
                     self.tilt_pro = True
-                    gravity = Decimal(gravity) / 10000
-                    temp = Decimal(temp) / 10
+                    gravity = Decimal(gravity) / Decimal(10000)
+                    temp = Decimal(temp) / Decimal(10)
                 else:
                     self.tilt_pro = False
-                    gravity = Decimal(gravity) / 1000
+                    gravity = Decimal(gravity) / Decimal(1000)
                     temp = Decimal(temp)
 
-                gravity += self.gravity_offset
-                temp += self.temp_offset
+                gravity = (gravity + self.gravity_offset).quantize(Decimal('.0001' if self.tilt_pro else '.001'))
+                temp = (temp + self.temp_offset).quantize(Decimal('.1' if self.tilt_pro else '1.'))
 
                 self._add_to_list(gravity, temp)
+                
+                # Get Brix, Gravity, and Attenuation
+                abv = to_abv(gravity, self.start_gravity)
+                atten = to_atten(gravity, self.start_gravity)
+                brix = to_brix(gravity)
+
+                # Store the latest values as Decimal
+                self.lastTemp = temp
+                self.lastGravity = gravity
+                self.lastABV = abv
+                self.lastAtten = atten
+                self.lastOG = self.start_gravity
 
                 # Check if the notify interval has passed before sending notifications
                 current_time = datetime.datetime.now()
                 if (current_time - self.last_sendtime).total_seconds() >= self.sendtime:
-                    notify(Event(source=self.name, endpoint='temperature', data=temp))
-                    notify(Event(source=self.name, endpoint='gravity', data=gravity))
-                    notify(Event(source=self.name, endpoint='brix', data=to_brix(gravity)))
-                    notify(Event(source=self.name, endpoint='abv', data=to_abv(gravity, self.start_gravity)))
-                    notify(Event(source=self.name, endpoint='atten', data=to_atten(gravity, self.start_gravity)))
-                    notify(Event(source=self.name, endpoint='ograv', data=self.start_gravity))
+                    notify(Event(source=self.name, endpoint='temperature', data=float(temp)))
+                    notify(Event(source=self.name, endpoint='gravity', data=float(gravity)))
+                    notify(Event(source=self.name, endpoint='brix', data=float(brix)))
+                    notify(Event(source=self.name, endpoint='abv', data=float(abv)))
+                    notify(Event(source=self.name, endpoint='atten', data=float(atten)))
+                    notify(Event(source=self.name, endpoint='ograv', data=float(self.start_gravity)))
                     self.last_sendtime = current_time
 
             except Exception as e:
-                logger.error(e)
+                logger.error(f"Error processing BLE beacon: {e}")
                 return False
 
         btctrl.process = process_ble_beacon
@@ -189,6 +217,8 @@ class TiltSensor:
         try:
             while True:
                 await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            logger.info('Task was cancelled')
         except KeyboardInterrupt:
             logger.info('Keyboard interrupt')
         finally:
@@ -197,3 +227,4 @@ class TiltSensor:
             command = aiobs.HCI_Cmd_LE_Advertise(enable=False)
             await btctrl.send_command(command)
             conn.close()
+

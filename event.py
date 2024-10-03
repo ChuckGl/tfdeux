@@ -1,13 +1,15 @@
+# filename: event.py
+
 import asyncio
 import logging
 from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 
-Event = namedtuple('Event',['source','endpoint','data'])
+Event = namedtuple('Event', ['source', 'endpoint', 'data'])
 
 def name(event):
-    return "%s.%s"%(event.source, event.endpoint)
+    return f"{event.source}.{event.endpoint}"
 
 Event.name = name
 
@@ -17,7 +19,7 @@ def register(eventName, callback):
     observers.setdefault(eventName, []).append(callback)
 
 def notify(event):
-    logger.debug("notify %s"%str(event))
+    logger.debug(f"notify {event}")
     if event.name() in observers:
         for observer in observers[event.name()]:
             if asyncio.iscoroutinefunction(observer):
