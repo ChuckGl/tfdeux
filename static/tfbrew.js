@@ -16,7 +16,6 @@ var chartColors = {
     lightBlue: 'rgb(179, 209, 255)',
     lightRed: 'rgb(255, 179, 179)'
 };
-
 var plotComp = {
     template: `
     <div>
@@ -33,10 +32,10 @@ var plotComp = {
     methods: {
         beerData: function(datapoint) {
             this.chart.data.labels.push(moment(datapoint.when));
-            this.chart.data.datasets[0].data.push(datapoint.gravity);
+            this.chart.data.datasets[0].data.push(datapoint.specificGravity);
             this.chart.data.datasets[1].data.push(datapoint.abv);
             this.chart.data.datasets[2].data.push(datapoint.atten);
-            this.chart.data.datasets[3].data.push(datapoint.ograv);
+            this.chart.data.datasets[3].data.push(datapoint.originalGravity);
             this.chart.update();
         },
         fetchData: function() {
@@ -61,8 +60,8 @@ var plotComp = {
                     }
                 });
 
-                const ogravValue = json.ograv[0].toFixed(4);
-                this.chart.data.datasets[3].label = `OG (${ogravValue})`;
+                const originalGravityValue = json.ograv[0].toFixed(4);
+                this.chart.data.datasets[3].label = `OG (${originalGravityValue})`;
 
                 this.updateChartScales();
                 this.chart.update();
@@ -216,9 +215,8 @@ var plotComp = {
 
         this.fetchData();
     }
-}
-
-plotComp2 = {
+};
+var plotComp2 = {
     template: `
     <div>
         <canvas ref="plot" width="400" height="350"></canvas>
@@ -235,11 +233,11 @@ plotComp2 = {
         tempData: function(datapoint) {
             this.chart.data.labels.push(moment(datapoint.when));
             this.chart.data.datasets[0].data.push(datapoint.temperature);
-            this.chart.data.datasets[1].data.push(datapoint.w1temperature);
-            this.chart.data.datasets[2].data.push(datapoint.setpoint);
-            this.chart.data.datasets[3].data.push(datapoint.heater_setpoint);
-            this.chart.data.datasets[4].data.push(datapoint.power);
-            this.chart.data.datasets[5].data.push(datapoint.heater_power);
+            this.chart.data.datasets[1].data.push(datapoint.w1Temperature);
+            this.chart.data.datasets[2].data.push(datapoint.fridgeSetpoint);
+            this.chart.data.datasets[3].data.push(datapoint.heaterSetpoint);
+            this.chart.data.datasets[4].data.push(datapoint.fridgePower);
+            this.chart.data.datasets[5].data.push(datapoint.heaterPower);
             this.chart.update();
         },
         fetchData: function() {
@@ -258,11 +256,11 @@ plotComp2 = {
                     if (timestampInMs >= cutoffTime) {
                         this.chart.data.labels.push(timestampInMs);
                         this.chart.data.datasets[0].data.push(json.temperature[index]);
-                        this.chart.data.datasets[1].data.push(json.w1temperature[index]);
-                        this.chart.data.datasets[2].data.push(json.setpoint[index]);
-                        this.chart.data.datasets[3].data.push(json.heater_setpoint[index]);
-                        this.chart.data.datasets[4].data.push(json.power[index]);
-                        this.chart.data.datasets[5].data.push(json.heater_power[index]);
+                        this.chart.data.datasets[1].data.push(json.w1temperature[index]); //w1Temperature
+                        this.chart.data.datasets[2].data.push(json.setpoint[index]); // fridgeSetpoint
+                        this.chart.data.datasets[3].data.push(json.heater_setpoint[index]); // heaterSetpoint
+                        this.chart.data.datasets[4].data.push(json.power[index]); // fridgePower
+                        this.chart.data.datasets[5].data.push(json.heater_power[index]); // heaterPower
                     }
                 });
 
@@ -430,20 +428,93 @@ plotComp2 = {
 
         this.fetchData();
     }
-}
+};
+var numpad = {
+  template: `
+    <div v-if="visible">
+      <!-- Overlay -->
+      <div class="overlay" @click="hideNumpad"></div>
 
+      <!-- Numpad Modal -->
+      <div class="numpad">
+        <div class="numpad-display">{{ value || ' '}}</div>
+        <div class="numpad-row">
+          <button @click="inputNumber('1')">1</button>
+          <button @click="inputNumber('2')">2</button>
+          <button @click="inputNumber('3')">3</button>
+        </div>
+        <div class="numpad-row">
+          <button @click="inputNumber('4')">4</button>
+          <button @click="inputNumber('5')">5</button>
+          <button @click="inputNumber('6')">6</button>
+        </div>
+        <div class="numpad-row">
+          <button @click="inputNumber('7')">7</button>
+          <button @click="inputNumber('8')">8</button>
+          <button @click="inputNumber('9')">9</button>
+        </div>
+        <div class="numpad-row">
+          <button @click="clear">Clear</button>
+          <button @click="inputNumber('0')">0</button>
+          <button @click="inputDecimal">.</button>
+        </div>
+        <div class="numpad-row">
+          <button class="backspace" @click="backspace">Backspace</button>
+          <button @click="submit">Enter</button>
+        </div>
+      </div>
+    </div>
+  `,
+  data() {
+    return {
+      value: '',
+      visible: false,
+      inputField: ''
+    };
+  },
+  methods: {
+    inputNumber(num) {
+      this.value += num;
+    },
+    inputDecimal() {
+      if (!this.value.includes('.')) {
+        this.value += '.';
+      }
+    },
+    clear() {
+      this.value = '';
+    },
+    backspace() {
+      this.value = this.value.slice(0, -1);
+    },
+    submit() {
+      if (this.inputField) {
+        this.$emit('update', this.value);  // Emit value to parent component
+      }
+      this.hideNumpad();
+    },
+    showNumpad(inputField, value = '0') {
+      this.inputField = inputField;
+      this.value = value;
+      this.visible = true;
+    },
+    hideNumpad() {
+      this.visible = false;
+      this.value = '';
+    }
+  }
+};
 Vue.component('brewcontroller', {
     props: ['href'],
     components: {
+        'numpad': numpad,
         'plot': plotComp,
         'plot2': plotComp2
     },
     template: `
 <div class="container-fluid" style="padding-top: 0; margin-top: 0; position: absolute; top: 0; width: 100%;">
     <div class="row no-gutters" style="align-items: flex-start; padding: 0; margin: 0;">
-        <div class="col text-end align-self-start" style="font-size: 10px; padding: 0; margin: 0;">
-            {{ formattedDateTime }}
-        </div>
+        <div class="col text-end align-self-start" style="font-size: 10px; padding: 0; margin: 0;">TFbrew</div>
     </div>
     <div class="row align-items-center no-gutters mb-1">
         <div class="col d-flex justify-content-start">
@@ -457,7 +528,7 @@ Vue.component('brewcontroller', {
                     </button>
                 </div>
                 <div class="btn-group me-2" style="width: 130px;">
-                    <button class="btn btn-primary" style="border: none; background-color: rgb(179, 209, 255); color: #004085; font-size: 20px; width: 80px;" @click="automaticFridge">
+                    <button class="btn btn-primary" style="border: none; background-color: rgb(179, 209, 255); color: #004085; font-size: 20px; width: 80px;" @click="automateFridge">
                         {{ automaticStrFridge }}
                     </button>
                     <button class="btn btn-primary" style="border: none; background-color: rgb(179, 209, 255); color: #004085; font-size: 20px; width: 50px;" @click="enableFridge">
@@ -466,14 +537,14 @@ Vue.component('brewcontroller', {
                 </div>
                 <div>
                     <b-input-group size="sm" :style="{ width: '110px', marginRight: '8px' }">
-                        <b-form-input id="setpoint" v-model="controllerState.setpoint" @focus="$event.target.select(); launchKeyboard()" @blur="closeKeyboard()" @change="setpointUpdateFridge" :style="{ textAlign: 'center' , fontSize: '20px'}"></b-form-input>
+                        <b-form-input id="fridgeSetpoint" v-model="controllerState.fridgeSetpoint" @focus="showNumpadForField('fridgeSetpoint')" class="form-control" :style="{ textAlign: 'center' , fontSize: '20px'}"></b-form-input>
                         <template #append>
                             <b-input-group-text :style="{ backgroundColor: 'rgb(179, 209, 255)', color: '#004085', borderRadius: '0 0.25rem 0.25rem 0', fontSize: '20px'}">&#176;F</b-input-group-text>
                         </template>
                     </b-input-group>
                 </div>
                 <div class="btn-group me-2" style="width: 130px">
-                    <button class="btn btn-primary" style="border: none; background-color: rgb(255, 179, 179); color: #721c24; font-size: 20px; width: 80px;" @click="automaticHeater">
+                    <button class="btn btn-primary" style="border: none; background-color: rgb(255, 179, 179); color: #721c24; font-size: 20px; width: 80px;" @click="automateHeater">
                         {{ automaticStrHeater }}
                     </button>
                     <button class="btn btn-primary" style="border: none; background-color: rgb(255, 179, 179); color: #721c24; font-size: 20px; width: 50px;" @click="enableHeater">
@@ -482,7 +553,7 @@ Vue.component('brewcontroller', {
                 </div>
                 <div>
                     <b-input-group size="sm" :style="{ width: '110px', marginRight: '8px' }">
-                        <b-form-input id="heater_setpoint" v-model="controllerState.heater_setpoint" @focus="$event.target.select(); launchKeyboard()" @blur="closeKeyboard()" @change="setpointUpdateHeater" :style="{ textAlign: 'center', fontSize: '20px'}"></b-form-input>
+                        <b-form-input id="heaterSetpoint" v-model="controllerState.heaterSetpoint" @focus="showNumpadForField('heaterSetpoint')" class="form-control" :style="{ textAlign: 'center', fontSize: '20px'}"></b-form-input>
                         <template #append>
                             <b-input-group-text :style="{ backgroundColor: 'rgba(255, 179, 179)', color: '#721c24', borderRadius: '0 0.25rem 0.25rem 0', fontSize: '20px'}">&#176;F</b-input-group-text>
                         </template>
@@ -490,11 +561,11 @@ Vue.component('brewcontroller', {
                 </div>
             </div>
             <div class="d-flex ms-auto" style="gap: 10px;">
-                <button class="btn" :style="snowflakeButtonStyle" @click="togglePowerFridge">
-                    <i class="fas fa-snowflake" :style="snowflakeStyle"></i>
+                <button class="btn" :style="buttonStyle" @click="toggleFridgePower">
+                    <i class="fas fa-snowflake" :style="fridgeButtonStyle"></i>
                 </button>
-                <button class="btn" :style="fireButtonStyle" @click="togglePowerHeater">
-                    <i class="fas fa-fire" :style="fireStyle"></i>
+                <button class="btn" :style="buttonStyle" @click="toggleHeaterPower">
+                    <i class="fas fa-fire" :style="heaterButtonStyle"></i>
                 </button>
             </div>
         </div>
@@ -529,7 +600,7 @@ Vue.component('brewcontroller', {
             <plot2 ref="chart2" :href="this.href + '/datahistory'" :timeRange="timeRange"></plot2>
         </div>
     </div>
-    <div class="row mt-0">
+    <div class="row no-gutters mt-0 justify-content-between align-items-center">
         <div class="col-auto">
             <select id="timeRange" @change="updateTimeRange" style="width: 100px; font-size: 10px;">
                 <option value="30">Last 30 Minutes</option>
@@ -539,32 +610,66 @@ Vue.component('brewcontroller', {
                 <option value="10080">Last 1 Week</option>
             </select>
         </div>
+        <div class="col-auto text-end" style="font-size: 14px;">
+            {{ formattedDateTime }}
+        </div>
     </div>
+    <!-- Numpad Component to be conditionally displayed -->
+    <numpad ref="numpad" @update="handleNumpadUpdate"></numpad>
 </div>
     `,
     data: function() {
         return {
             ws: null,
-            controllerState: {},
-            timeRange: 240
-        }
+            controllerState: {
+                fridgeSetpoint: 0, // Initialize with empty string
+                heaterSetpoint: 0 // Initialize with empty strin
+            },
+            timeRange: 240,
+            //showNumpad: false,
+            activeField: '',
+            formattedDateTime: moment().format('DD-MMM-YY hh:mma'),
+            dateTimeInterval: null
+        };
     },
     computed: {
-        formattedDateTime: function() {
-            return moment().format('DD-MMM-YY hh:mma');
+        // Button formatting
+        automaticStrFridge: function() {
+            return this.controllerState.fridgeAutomatic ? "Auto" : "Manual";
         },
-        formattedTemperature: function() {
-            if ('temperature' in this.controllerState)
-                return this.controllerState.temperature.toFixed(1)+'\u00B0F'
+        automaticStrHeater: function() {
+            return this.controllerState.heaterAutomatic ? "Auto" : "Manual";
         },
-        formattedW1Temperature: function() {
-            if ('w1temperature' in this.controllerState)
-                return this.controllerState.w1temperature.toFixed(1) + '\u00B0F';
+        enabledStrFridge: function() {
+            return this.controllerState.fridgeEnabled ? "On" : "Off";
         },
-        formattedGravity: function() {
-            if ('gravity' in this.controllerState)
-                return this.controllerState.gravity.toFixed(4) + ' SG';
+        enabledStrHeater: function() {
+            return this.controllerState.heaterEnabled ? "On" : "Off";
         },
+
+        // Icon button formatting
+        buttonStyle: function() {
+            return {
+                backgroundColor: 'transparent',
+                borderColor: 'transparent',
+                padding: '0.0rem',
+                borderRadius: '50%'
+            };
+        },
+        fridgeButtonStyle: function() {
+            return {
+                color: this.controllerState.fridgePower === 100 ? 'rgb(54, 162, 255)' : '#d3d3d3',
+                fontSize: '36px'
+            };
+        },
+        heaterButtonStyle: function() {
+            return {
+                color: this.controllerState.heaterPower === 100 ? 'rgb(255, 99, 132)' : '#d3d3d3',
+                fontSize: '36px'
+            };
+        },
+
+        // Unit formatting
         formattedABV: function() {
             if ('abv' in this.controllerState)
                 return this.controllerState.abv.toFixed(2) + '%';
@@ -573,46 +678,21 @@ Vue.component('brewcontroller', {
             if ('atten' in this.controllerState)
                 return this.controllerState.atten.toFixed(2) + '%';
         },
-        snowflakeStyle: function() {
-            return {
-                color: this.controllerState.power === 100 ? 'rgb(54, 162, 255)' : '#d3d3d3',
-                fontSize: '36px'
-            };
+        //formattedDateTime: function() {
+        //    return moment().format('DD-MMM-YY hh:mma');
+        //},
+        formattedGravity: function() {
+            if ('specificGravity' in this.controllerState)
+                return this.controllerState.specificGravity.toFixed(4) + ' SG';
         },
-        snowflakeButtonStyle: function() {
-            return {
-                backgroundColor: 'transparent',
-                borderColor: 'transparent',
-                padding: '0.0rem',
-                borderRadius: '50%'
-            };
+        formattedTemperature: function() {
+            if ('temperature' in this.controllerState)
+                return this.controllerState.temperature.toFixed(1)+'\u00B0F';
         },
-        fireStyle: function() {
-            return {
-                color: this.controllerState.heater_power === 100 ? 'rgb(255, 99, 132)' : '#d3d3d3',
-                fontSize: '36px'
-            };
+        formattedW1Temperature: function() {
+            if ('w1Temperature' in this.controllerState)
+                return this.controllerState.w1Temperature.toFixed(1) + '\u00B0F';
         },
-        fireButtonStyle: function() {
-            return {
-                backgroundColor: 'transparent',
-                borderColor: 'transparent',
-                padding: '0.0rem',
-                borderRadius: '50%'
-            };
-        },
-        enabledStrFridge: function() {
-            return this.controllerState.enabled ? "On" : "Off";
-        },
-        automaticStrFridge: function() {
-            return this.controllerState.automatic ? "Auto" : "Manual";
-        },
-        enabledStrHeater: function() {
-            return this.controllerState.heater_enabled ? "On" : "Off";
-        },
-        automaticStrHeater: function() {
-            return this.controllerState.heater_automatic ? "Auto" : "Manual";
-        }
     },
     methods: {
         updateTimeRange(event) {
@@ -621,28 +701,46 @@ Vue.component('brewcontroller', {
         newWsConn: function(url) {
             this.ws = new SockJS(url);
             this.ws.onmessage = msg => {
-                for (key in msg.data) {
-                    this.controllerState[key] = msg.data[key];
-                }
-                var datapoint = {
+            console.log("Raw message data:", msg.data);
+                // Directly map JSON data to desired camelCase properties in `controllerState`
+                this.controllerState = {
+                    temperature: msg.data.temperature,
+                    w1Temperature: msg.data.w1temperature,
+                    specificGravity: msg.data.gravity,
+                    abv: msg.data.abv,
+                    atten: msg.data.atten,
+                    originalGravity: msg.data.ograv,
+                    fridgeEnabled: msg.data.enabled,
+                    fridgeAutomatic: msg.data.automatic,
+                    fridgePower: msg.data.power,
+                    fridgeSetpoint: msg.data.setpoint,
+                    heaterEnabled: msg.data.heater_enabled,
+                    heaterAutomatic: msg.data.heater_automatic,
+                    heaterPower: msg.data.heater_power,
+                    heaterSetpoint: msg.data.heater_setpoint,
+                    wsUrl: msg.data.wsUrl
+                };
+                // Create a datapoint for charting
+                const datapoint = {
                     'when': moment(),
                     'temperature': this.controllerState.temperature,
-                    'w1temperature': this.controllerState.w1temperature,
-                    'gravity': this.controllerState.gravity,
+                    'w1Temperature': this.controllerState.w1Temperature,
+                    'specificGravity': this.controllerState.specificGravity,
                     'abv': this.controllerState.abv,
                     'atten': this.controllerState.atten,
-                    'ograv': this.controllerState.ograv,
-                    'power': this.controllerState.power,
-                    'setpoint': this.controllerState.setpoint,
-                    'heater_power': this.controllerState.heater_power,
-                    'heater_setpoint': this.controllerState.heater_setpoint
+                    'originalGravity': this.controllerState.originalGravity,
+                    'fridgePower': this.controllerState.fridgePower,
+                    'fridgeSetpoint': this.controllerState.fridgeSetpoint,
+                    'heaterPower': this.controllerState.heaterPower,
+                    'heaterSetpoint': this.controllerState.heaterSetpoint
                 };
+                // Update charts with the new datapoint
                 this.$refs.chart1.beerData(datapoint);
                 this.$refs.chart2.tempData(datapoint);
             };
             this.ws.onclose = (e) => {
                 console.log("Application WS Close", e);
-                this.newWsConn(url);
+                this.newWsConn(url);  // Reconnect WebSocket on close
             };
             this.ws.onerror = (e) => {
                 console.log("Application WS Error: " + e);
@@ -661,55 +759,39 @@ Vue.component('brewcontroller', {
                 console.error("System WS Error: " + e);
             };
         },
-        togglePowerFridge() {
-            this.controllerState.power = this.controllerState.power === 100 ? 0 : 100;
-            this.updatePowerFridge(this.controllerState.power);
+        toggleFridgePower() {
+            this.controllerState.fridgePower = this.controllerState.fridgePower === 100 ? 0 : 100;
+            this.updateFridgePower(this.controllerState.fridgePower);
         },
-        updatePowerFridge: function(p) {
+        updateFridgePower: function(p) {
             this.ws.send(JSON.stringify({'controller': 'Fridge', 'power': p}));
         },
         enableFridge: function() {
-            this.ws.send(JSON.stringify({'controller': 'Fridge', 'enabled': !this.controllerState.enabled}));
+            this.ws.send(JSON.stringify({'controller': 'Fridge', 'enabled': !this.controllerState.fridgeEnabled}));
         },
-        automaticFridge: function() {
-            this.ws.send(JSON.stringify({'controller': 'Fridge', 'automatic': !this.controllerState.automatic}));
+        automateFridge: function() {
+            this.ws.send(JSON.stringify({'controller': 'Fridge', 'automatic': !this.controllerState.fridgeAutomatic}));
         },
-        setpointUpdateFridge: function(value) {
-            this.controllerState.setpoint = value;
+        updateFridgeSetpoint: function(value) {
+            this.controllerState.fridgeSetpoint = value;
             this.ws.send(JSON.stringify({'controller': 'Fridge', 'setpoint': value}));
         },
-        togglePowerHeater() {
-            this.controllerState.heater_power = this.controllerState.heater_power === 100 ? 0 : 100;
-            this.updatePowerHeater(this.controllerState.heater_power);
+        toggleHeaterPower() {
+            this.controllerState.heaterPower = this.controllerState.heaterPower === 100 ? 0 : 100;
+            this.updateHeaterPower(this.controllerState.heaterPower);
         },
-        updatePowerHeater: function(p) {
+        updateHeaterPower: function(p) {
             this.ws.send(JSON.stringify({'controller': 'Heater', 'power': p}));
         },
         enableHeater: function() {
-            this.ws.send(JSON.stringify({'controller': 'Heater', 'enabled': !this.controllerState.heater_enabled}));
+            this.ws.send(JSON.stringify({'controller': 'Heater', 'enabled': !this.controllerState.heaterEnabled}));
         },
-        automaticHeater: function() {
-            this.ws.send(JSON.stringify({'controller': 'Heater', 'automatic': !this.controllerState.heater_automatic}));
+        automateHeater: function() {
+            this.ws.send(JSON.stringify({'controller': 'Heater', 'automatic': !this.controllerState.heaterAutomatic}));
         },
-        setpointUpdateHeater: function(value) {
-            this.controllerState.heater_setpoint = value;
+        updateHeaterSetpoint: function(value) {
+            this.controllerState.heaterSetpoint = value;
             this.ws.send(JSON.stringify({'controller': 'Heater', 'setpoint': value}));
-        },
-        launchKeyboard: function() {
-            if (this.systemWs && this.systemWs.readyState === SockJS.OPEN) {
-                console.log("Sending launch_keyboard command");
-                this.systemWs.send("launch_keyboard");
-            } else {
-                console.error("System WebSocket is not open.");
-            }
-        },
-        closeKeyboard: function() {
-            if (this.systemWs && this.systemWs.readyState === SockJS.OPEN) {
-                console.log("Sending close_keyboard command");
-                this.systemWs.send("close_keyboard");
-            } else {
-                console.error("System WebSocket is not open.");
-            }
         },
         rebootSystem: function() {
             if (this.systemWs && this.systemWs.readyState === SockJS.OPEN) {
@@ -726,16 +808,50 @@ Vue.component('brewcontroller', {
             } else {
                 console.error("System WebSocket is not open.");
             }
+        },
+        showNumpadForField(field) {
+            this.activeField = field;
+            const value = this.controllerState[field] !== undefined ? this.controllerState[field].toString() : '0';
+            this.$refs.numpad.showNumpad(field, value); // Pass the field name and value to the numpad
+        },
+        onNumpadEnter(value) {
+            this.showNumpad = false;
+            if (this.activeField === 'fridgeSetpoint') {
+                this.controllerState.fridgeSetpoint = value;
+                this.updateFridgeSetpoint(value);
+            } else if (this.activeField === 'heaterSetpoint') {
+                this.controllerState.heaterSetpoint = value;
+                this.updateHeaterSetpoint(value);
+            }
+        },
+        handleNumpadUpdate(value) {
+            console.log("Numpad value received:", value);
+            if (this.activeField) {
+                this.controllerState[this.activeField] = parseFloat(value); // Ensure it's a float
+                if (this.activeField === 'fridgeSetpoint') {
+                    this.updateFridgeSetpoint(value);
+                } else if (this.activeField === 'heaterSetpoint') {
+                    this.updateHeaterSetpoint(value);
+                }
+            }
         }
     },
     mounted: function() {
-        this.systemWsConn("http://192.168.254.52:8080/controllers/System/ws");
+        this.systemWsConn("http://192.168.254.53:8080/controllers/System/ws");
         fetch(this.href)
         .then(response => response.json())
         .then(json => {
             this.controllerState = json;
             this.newWsConn(this.controllerState.wsUrl);
         });
+        this.dateTimeInterval = setInterval(() => {
+            // Trigger Vue's reactivity system to refresh the computed property
+            this.formattedDateTime = moment().format('DD-MMM-YY hh:mma');
+        }, 1000);
+    },
+    beforeDestroy: function() {
+        // Clear the interval when the component is destroyed to avoid memory leaks
+        clearInterval(this.dateTimeInterval);
     }
 });
 

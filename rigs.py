@@ -141,7 +141,7 @@ class Rig:
 
         return combined_history
 
-    def broadcastDetails(self, includeSetpoint=False):
+    def broadcastDetails(self, includeSetpoint=True):
         manager = sockjs.get_manager(f'{self.name}-ws', app)
         details = self.combineRigDetails()
         if not includeSetpoint:

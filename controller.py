@@ -15,6 +15,7 @@ import interfaces
 import event
 from common import app, components
 from plugins.W1Sensor import W1Sensor
+from plugins.DummySensor import DummySensor
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,8 @@ HISTORY_SIZE = 1440
 
 class Controller(interfaces.Component, interfaces.Runnable):
     def __init__(self, name, sensor, actor, logic, agitator=None, targetTemp=0.0, initiallyEnabled=False, rig=None):
-        self.w1sensor = W1Sensor(name='Onewire', sensorId='28-3ce1e380c8b2')
+        self.w1sensor = W1Sensor(name='Onewire', sensorId='28-0300a279cd1d')
+        #self.w1sensor = DummySensor(name='Onewire', fakeTemp=50, fakeGravity=0.0, sensor_type='thermo')
         self.name = name
         self._enabled = initiallyEnabled
         self._autoMode = True
@@ -235,12 +237,6 @@ async def system_handler(session, msg, additional_argument=None, *args):
             elif additional_argument.data == "poweroff":
                 os.system('sudo shutdown -P')
                 logger.info("***** System Powering Off in 1 minute, use sudo shutdown -c to cancel *****")
-            elif additional_argument.data == "launch_keyboard":
-                # Launch the virtual keyboard
-                subprocess.Popen(['wvkbd-mobintl', '-L', '300', '--landscape-layers', 'dialer'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            elif additional_argument.data == "close_keyboard":
-                # Close the virtual keyboard
-                os.system('pkill wvkbd-mobintl')
             else:
                 logger.info("Unknown command received from System Admin WebSocket")
 

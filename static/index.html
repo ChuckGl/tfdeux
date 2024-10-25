@@ -1,18 +1,63 @@
-<!-- filename: index.html -->
-
 <html>
     <head>
-        <title>TFferm Controller</title>
+        <title>TFbrewm Controller</title>
         <link rel="stylesheet" href="libs/bootstrap.min.css">
         <link rel="stylesheet" href="libs/bootstrap-vue.css">
         <link rel="stylesheet" href="libs/font-awesome.min.css">
         <script src="libs/vue.min.js"></script>
-        <script src="libs/polyfill.min.js"></script>
         <script src="libs/bootstrap-vue.min.js"></script>
         <script src="libs/sockjs.min.js"></script>
         <script src="libs/moment.min.js"></script>
         <script src="libs/Chart.bundle.min.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- Style for numpad -->
+        <style>
+            .numpad-display {
+                font-size: 24px;
+                text-align: center;
+                margin-bottom: 10px;
+                background-color: #f0f0f0;
+                padding: 10px;
+                width: 100%;
+                border: 1px solid #ccc;
+                min-height: 60px;
+                min-width: 250px;
+            }
+            .numpad {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 1001;
+                border: 1px solid #ccc;
+                padding: 10px;
+                background-color: white;
+                box-shadow: 0px, 0px, 15px, rgba(0, 0, 0, 0.5);
+            }
+            .numpad-row {
+                display: flex;
+                justify-content: space-around;
+                margin-bottom: 10px;
+            }
+            .numpad-row button {
+                width: 60px;
+                height: 60px;
+                font-size: 20px;
+            }
+            .numpad-row button.backspace {
+                width: 140px;
+                font-size: 20px;
+            }
+            .overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 1000;
+            }
+        </style>
     </head>
     <body>
         <div id="app"> 
@@ -26,4 +71,3 @@
         <script src="tfbrew.js"></script>
     </body>
 </html>
-

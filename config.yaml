@@ -1,5 +1,5 @@
 consoleLoglevel: WARNING
-logLevel: INFO
+logLevel: DEBUG
 
 port: 8080
 enableWebUI: True
@@ -7,9 +7,12 @@ enableWebUI: True
 sensors:
   - Onewire:
       plugin: W1Sensor
-      id: 28-3ce1e380c8b2
+      id: 28-0300a279cd1d
       pollInterval: 30
       sendtime: 10
+      #plugin: DummySensor
+      #type: thermo
+      #fakeTemp: 50
 
   - TiltYellow:
       plugin: TiltSensor
