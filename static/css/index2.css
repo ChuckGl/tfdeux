@@ -1,0 +1,46 @@
+/* index2.css */
+
+/* Global Styles */
+body.dark-mode {
+    background-color: #121212;
+    color: #e0e0e0;
+    margin: 0; /* Reset default margin */
+    padding-top: 60px; /* Prevent content overlap with the fixed header */
+}
+
+/* Header */
+.header-info {
+    position: fixed; /* Locks the header at the top */
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000; /* Ensures the header stays above other content */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #333;
+    color: #e0e0e0;
+    font-size: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for separation */
+}
+
+/* Chart Container */
+.chart-container {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.chart {
+    height: 400px;
+    width: 100%;
+}
+
+/* Control Buttons */
+.control-buttons {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+}
+

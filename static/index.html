@@ -1,73 +1,29 @@
-<html>
-    <head>
-        <title>TFbrewm Controller</title>
-        <link rel="stylesheet" href="libs/bootstrap.min.css">
-        <link rel="stylesheet" href="libs/bootstrap-vue.css">
-        <link rel="stylesheet" href="libs/font-awesome.min.css">
-        <script src="libs/vue.min.js"></script>
-        <script src="libs/bootstrap-vue.min.js"></script>
-        <script src="libs/sockjs.min.js"></script>
-        <script src="libs/moment.min.js"></script>
-        <script src="libs/Chart.bundle.min.js"></script>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <!-- Style for numpad -->
-        <style>
-            .numpad-display {
-                font-size: 24px;
-                text-align: center;
-                margin-bottom: 10px;
-                background-color: #f0f0f0;
-                padding: 10px;
-                width: 100%;
-                border: 1px solid #ccc;
-                min-height: 60px;
-                min-width: 250px;
-            }
-            .numpad {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                z-index: 1001;
-                border: 1px solid #ccc;
-                padding: 10px;
-                background-color: white;
-                box-shadow: 0px, 0px, 15px, rgba(0, 0, 0, 0.5);
-            }
-            .numpad-row {
-                display: flex;
-                justify-content: space-around;
-                margin-bottom: 10px;
-            }
-            .numpad-row button {
-                width: 60px;
-                height: 60px;
-                font-size: 20px;
-            }
-            .numpad-row button.backspace {
-                width: 140px;
-                font-size: 20px;
-            }
-            .overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                z-index: 1000;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="app"> 
-            <b-navbar type="primary"></b-navbar>
-            <brewcontroller 
-                v-for="(rig, name) in rigs" 
-                :key="name" 
-                :href="rig.url">
-            </brewcontroller>
-        </div>
-        <script src="tfbrew.js"></script>
-    </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TFbrew Fermentation Controller">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <title>TFbrew Fermentation Controller</title>
+
+    <!-- Quasar and Fonts -->
+    <link rel="stylesheet" href="libs/material-icons.css" type="text/css">
+    <link rel="stylesheet" href="libs/quasar.prod.css" type="text/css">
+
+    <!-- Dark mode styles moved to CSS -->
+    <link rel="stylesheet" href="css/index.css" type="text/css">
+</head>
+<body>
+    <div id="app"></div>
+
+    <!-- Vue and Supporting Libraries -->
+    <script src="libs/vue.global.prod.js" defer></script>
+    <script src="libs/sockjs.min.js" defer></script>
+    <script src="libs/quasar.umd.prod.js" defer></script>
+
+    <!-- Application Script -->
+    <script src="js/tfbrew.js" defer></script>
+</body>
 </html>
+

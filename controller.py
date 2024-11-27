@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 HISTORY_SIZE = 1440
 
 class Controller(interfaces.Component, interfaces.Runnable):
-    def __init__(self, name, sensor, actor, logic, agitator=None, targetTemp=0.0, initiallyEnabled=False, rig=None):
+    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False):
         self.w1sensor = W1Sensor(name='Onewire', sensorId='28-0300a279cd1d')
         #self.w1sensor = DummySensor(name='Onewire', fakeTemp=50, fakeGravity=0.0, sensor_type='thermo')
         self.name = name
@@ -30,10 +30,8 @@ class Controller(interfaces.Component, interfaces.Runnable):
         self._autoMode = True
         self.sensor = sensor
         self.actor = actor
-        self.agitator = agitator
         self.targetTemp = targetTemp
         self.logic = logic
-        self.rig = rig
         self.timestamp_history = []
         self.power_history = []
         self.temp_history = []
@@ -45,6 +43,7 @@ class Controller(interfaces.Component, interfaces.Runnable):
         self.ograv_history = []
 
         sockjs.add_endpoint(app, prefix=f'/controllers/{self.name}/ws', name=f'{self.name}-ws', handler=self.websocket_handler)
+        print_registered_routes()
         asyncio.ensure_future(self.run())
 
         event.notify(event.Event(source=self.name, endpoint='initialSetpoint', data=self.targetTemp))
@@ -67,23 +66,15 @@ class Controller(interfaces.Component, interfaces.Runnable):
         elif endpoint == 'power':
             self.actor.updatePower(float(data))
             logger.info(f"Setting {self.name} controller power to {float(data)}")
-        elif endpoint == 'agitating' and self.agitator:
-            power = 100 * float(data)
-            logger.info(f"Setting {self.name} agitator to {power}")
-            self.agitator.updatePower(power)
         else:
             self.logic.callback(endpoint, data)
-
-        self.broadcastDetails(includeSetpoint)
-        if self.rig:
-            self.rig.broadcastDetails(includeSetpoint)
 
     def setSetpoint(self, setpoint):
         self.targetTemp = setpoint
         event.notify(event.Event(source=self.name, endpoint='setpoint', data=self.targetTemp))
         logger.info(f"Setting {self.name} Setpoint to {self.targetTemp}")
 
-    def broadcastDetails(self, includeSetpoint=False):
+    def broadcastDetails(self, includeSetpoint=True):
         manager = sockjs.get_manager(f'{self.name}-ws', app)
         details = self.getDetails()
         if not includeSetpoint:
@@ -180,17 +171,35 @@ class Controller(interfaces.Component, interfaces.Runnable):
             await asyncio.sleep(10)
 
     async def websocket_handler(self, session, msg, additional_argument=None, *args):
+        try:
+            session_info = str(session)  # Fallback to string representation
+            logger.info(f"WebSocket Handler invoked for: {self.name} (session={session_info})")
+        except Exception as e:
+            logger.error(f"Error inspecting session object: {e}")
+            session_info = "unknown"
+
         if isinstance(additional_argument, sockjs.protocol.SockjsMessage):
             if additional_argument.type == sockjs.protocol.MsgType.OPEN:
+                logger.info(f"WebSocket OPEN: session={session}, controller={self.name}")
                 self.broadcastDetails()
+                logger.info(f"Broadcasting details on WebSocket OPEN for: {self.name}")
             elif additional_argument.type == sockjs.protocol.MsgType.MESSAGE:
-                data = json.loads(additional_argument.data)
-                for endpoint, value in data.items():
-                    self.callback(endpoint, value)
+                logger.info(f"WebSocket MESSAGE received: session={session}, controller={self.name}, raw_data={additional_argument.data}")
+                try:
+                    data = json.loads(additional_argument.data)
+                    for endpoint, value in data.items():
+                        logger.info(f"Processing message from WebSocket: session={session}, controller={self.name}, endpoint={endpoint}, value={value}")
+                        self.callback(endpoint, value)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to decode WebSocket message: session={session}, controller={self.name}, error={e}, raw_data={additional_argument.data}")
 
 async def listControllers(request):
+    print("listControllers called!")
     res = request.app.router['controllerDetail']
     controllers = {name: {'url': str(request.url.with_path(str(res.url_for(name=name))))} for name, component in components.items() if isinstance(component, Controller)}
+    system_url = str(request.url.with_path('/controllers/System'))
+    controllers['System'] = {'url': system_url}
+    print("CONTROLLER LIST:", controllers)
     return web.json_response(controllers)
 
 async def controllerDetail(request):
@@ -243,9 +252,20 @@ async def system_handler(session, msg, additional_argument=None, *args):
         elif additional_argument.type == sockjs.protocol.MsgType.CLOSE:
             pass
 
+def print_registered_routes():
+    print("Registered routes:")
+    for route in app.router.routes():
+        if hasattr(route, 'handler'):
+            print(f"Method: {route.method}, Path: {route.resource}, Handler: {route.handler}")
+        else:
+            print(f"Path: {route.resource}")
+
+
 app.router.add_get('/controllers', listControllers)
 app.router.add_get('/controllers/{name}', controllerDetail, name='controllerDetail')
 app.router.add_get('/controllers/{name}/datahistory', dataHistory, name='dataHistory')
 
-sockjs.add_endpoint(app, system_handler, name='system', prefix='/controllers/System/ws')
+#sockjs.add_endpoint(app, Controller.websocket_handler, name='system', prefix='/controllers/System/ws')
 
+sockjs.add_endpoint(app, prefix=f'/controllers/System/ws', name=f'System', handler=Controller.websocket_handler)
+print_registered_routes()

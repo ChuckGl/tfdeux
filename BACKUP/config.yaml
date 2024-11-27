@@ -57,11 +57,48 @@ controllers:
       initialState: on
 
 extensions:
+#  - blynk:
+#      plugin: Blynk
+#      server: blynk.cloud
+#      token: vRlSNd6zTg2XxD7PQ-YCcApIeeo-tnTu
+
   - web:
       plugin: SimpleWebView
       endpoints:
         - enable
 
 connections:
+#  - TiltYellow.temperature=>blynk.v1
+#  - TiltYellow.gravity=>blynk.v2
+#  - TiltYellow.abv=>blynk.v3
+#  - TiltYellow.atten=>blynk.v4
+#  - TiltYellow.ograv=>blynk.v5
+#  - Cooling.power=>blynk.v6
+#  - Fridge.initialSetpoint=>blynk.v7
+#  - Fridge.initialSetpoint=>blynk.v8
+#  - Fridge.allowedUndershoot=>blynk.v9
+#  - Fridge.allowedOvershoot=>blynk.v10
+#  - Heating.power=>blynk.v11
+#  - Heater.initialSetpoint=>blynk.v12
+#  - Heater.initialSetpoint=>blynk.v13 
+#  - Heater.allowedUndershoot=>blynk.v14
+#  - Heater.allowedOvershoot=>blynk.v15 
+#  - Onewire.temperature=>blynk.v16
+#  - Fridge.automatic=>blynk.v17
+#  - Fridge.enabled=>blynk.v18
+#  - Heater.automatic=>blynk.v19
+#  - Heater.enabled=>blynk.v20
+#  - blynk.v6=>Fridge.power
+#  - blynk.v8=>Fridge.setpoint
+#  - blynk.v9=>Fridge.undershoot
+#  - blynk.v10=>Fridge.overshoot
+#  - blynk.v11=>Heater.power
+#  - blynk.v13=>Heater.setpoint
+#  - blynk.v14=>Heater.undershoot
+#  - blynk.v15=>Heater.overshoot
+#  - blynk.v17=>Fridge.automatic
+#  - blynk.v18=>Fridge.enabled
+#  - blynk.v19=>Heater.automatic
+#  - blynk.v20=>Heater.enabled
   - web.enable => Fridge.state
 

@@ -10,7 +10,6 @@ from ruamel.yaml import YAML
 
 import interfaces
 import controller
-import rigs
 import event
 from common import app, components
 
@@ -52,19 +51,9 @@ for ctrl in config['controllers']:
         logic = logicPlugin.factory(name, attribs['logicCoeffs'])
         sensor = components[attribs['sensor']]
         actor = components[attribs['actor']]
-        agitator = components.get(attribs.get('agitator', ''), None)
         initialSetpoint = attribs.get('initialSetpoint', 67.0)
         initiallyEnabled = True if attribs.get('initialState', 'on') == 'on' else 'off'
-        components[name] = controller.Controller(name, sensor, actor, logic, agitator, initialSetpoint, initiallyEnabled)
-
-for rig in config['rigs']:
-    for name, attribs in rig.items():
-        logger.info(f"Setting up rig: {name}")
-        assignedCtrl = attribs.get('assignedCtrls', [])
-        logger.info(f"Controllers in Rig {name}: {assignedCtrl}")
-        controllers = [components[ctrl_name] for ctrl_name in assignedCtrl]
-        rigMgr = rigs.Rig(name, controllers)
-        components[name] = rigMgr
+        components[name] = controller.Controller(name, sensor, actor, logic, initialSetpoint, initiallyEnabled)
 
 async def start_background_tasks(app):
     pass
