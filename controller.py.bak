@@ -1,5 +1,5 @@
 # filename: controller.py
-from datetime import datetime
+
 import os
 import sys
 import asyncio
@@ -11,7 +11,6 @@ import decimal
 from time import time
 from aiohttp import web
 
-import plugins.system_command_handler as system_handler
 import interfaces
 import event
 from common import app, components
@@ -24,8 +23,8 @@ HISTORY_SIZE = 1440
 
 class Controller(interfaces.Component, interfaces.Runnable):
     def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False):
-        #self.w1sensor = W1Sensor(name='Onewire', sensorId='28-0300a279cd1d')
-        self.w1sensor = DummySensor(name='Onewire', fakeTemp=50, fakeGravity=0.0, sensor_type='thermo')
+        self.w1sensor = W1Sensor(name='Onewire', sensorId='28-0300a279cd1d')
+        #self.w1sensor = DummySensor(name='Onewire', fakeTemp=50, fakeGravity=0.0, sensor_type='thermo')
         self.name = name
         self._enabled = initiallyEnabled
         self._autoMode = True
@@ -42,7 +41,9 @@ class Controller(interfaces.Component, interfaces.Runnable):
         self.abv_history = []
         self.atten_history = []
         self.ograv_history = []
+
         sockjs.add_endpoint(app, prefix=f'/controllers/{self.name}/ws', name=f'{self.name}-ws', handler=self.websocket_handler)
+        print_registered_routes()
         asyncio.ensure_future(self.run())
 
         event.notify(event.Event(source=self.name, endpoint='initialSetpoint', data=self.targetTemp))
@@ -51,9 +52,7 @@ class Controller(interfaces.Component, interfaces.Runnable):
 
     def callback(self, endpoint, data):
         includeSetpoint = True
-        if self.name == "System":
-            system_handler.handle_system_command(endpoint, data, controller_name=self.name)
-        elif endpoint in ['state', 'enabled']:
+        if endpoint in ['state', 'enabled']:
             self.enabled = bool(data)
             self.actor.updatePower(0.0)
             logger.info(f"Setting {self.name} controller enabled to {bool(data)}")
@@ -103,26 +102,20 @@ class Controller(interfaces.Component, interfaces.Runnable):
         event.notify(event.Event(source=self.name, endpoint='automatic', data=self.automatic))
 
     def getDetails(self):
-        if self.name == 'System':
-            details = {
-                'name': self.name,
-                'wsUrl': f'/controllers/{self.name}/ws'
-            }
-        else:
-            details = {
-                'name': self.name,
-                'temperature': self.sensor.temp(),
-                'w1temperature': self.w1sensor.temp(),
-                'gravity': self.sensor.gravity(),
-                'abv': self.sensor.abv(),
-                'atten': self.sensor.atten(),
-                'ograv': self.sensor.ograv(),
-                'enabled': self.enabled,
-                'automatic': self.automatic,
-                'power': self.actor.getPower(),
-                'setpoint': self.targetTemp,
-                'wsUrl': f'/controllers/{self.name}/ws'
-            }
+        details = {
+            'name': self.name,
+            'temperature': self.sensor.temp(),
+            'w1temperature': self.w1sensor.temp(),
+            'gravity': self.sensor.gravity(),
+            'abv': self.sensor.abv(),
+            'atten': self.sensor.atten(),
+            'ograv': self.sensor.ograv(),
+            'enabled': self.enabled,
+            'automatic': self.automatic,
+            'power': self.actor.getPower(),
+            'setpoint': self.targetTemp,
+            'wsUrl': f'/controllers/{self.name}/ws'
+        }
 
         # Convert Decimal to float for JSON serialization
         for key, value in details.items():
@@ -145,43 +138,37 @@ class Controller(interfaces.Component, interfaces.Runnable):
     async def run(self):
         await asyncio.sleep(5)
         while True:
-            # Skip actor and sensor logic if the controller is System
-            if self.name != "System":
-                output = self.actor.getPower()
-                if self.enabled:
-                    if self._autoMode:
-                        output = self.logic.calc(self.sensor.temp(), self.targetTemp)
-                    self.actor.updatePower(output)
-    
-                # Update histories for controllers with actors
-                self.timestamp_history.append(time())
-                self.power_history.append(output)
-                self.temp_history.append(self.sensor.temp())
-                self.setpoint_history.append(self.targetTemp)
-                self.w1temp_history.append(self.w1sensor.temp())
-                self.gravity_history.append(self.sensor.gravity())
-                self.abv_history.append(self.sensor.abv())
-                self.atten_history.append(self.sensor.atten())
-                self.ograv_history.append(self.sensor.ograv())
-    
-                # Cull histories if they exceed the size limit
-                if len(self.timestamp_history) == HISTORY_SIZE + 1:
-                    i = self.mostredundanttime(self.timestamp_history)
-                    del self.timestamp_history[i]
-                    del self.power_history[i]
-                    del self.temp_history[i]
-                    del self.setpoint_history[i]
-                    del self.w1temp_history[i]
-                    del self.gravity_history[i]
-                    del self.abv_history[i]
-                    del self.atten_history[i]
-                    del self.ograv_history[i]
-    
-                # Always broadcast details for all controllers, including System
-                self.broadcastDetails()
-    
-            await asyncio.sleep(10)
+            output = self.actor.getPower()
+            if self.enabled:
+                if self._autoMode:
+                    output = self.logic.calc(self.sensor.temp(), self.targetTemp)
+                self.actor.updatePower(output)
 
+            self.broadcastDetails()
+
+            self.timestamp_history.append(time())
+            self.power_history.append(output)
+            self.temp_history.append(self.sensor.temp())
+            self.setpoint_history.append(self.targetTemp)
+            self.w1temp_history.append(self.w1sensor.temp())
+            self.gravity_history.append(self.sensor.gravity())
+            self.abv_history.append(self.sensor.abv())
+            self.atten_history.append(self.sensor.atten())
+            self.ograv_history.append(self.sensor.ograv())
+
+            if len(self.timestamp_history) == HISTORY_SIZE + 1:
+                i = self.mostredundanttime(self.timestamp_history)
+                del self.timestamp_history[i]
+                del self.power_history[i]
+                del self.temp_history[i]
+                del self.setpoint_history[i]
+                del self.w1temp_history[i]
+                del self.gravity_history[i]
+                del self.abv_history[i]
+                del self.atten_history[i]
+                del self.ograv_history[i]
+
+            await asyncio.sleep(10)
 
     async def websocket_handler(self, session, msg, additional_argument=None, *args):
         try:
@@ -193,72 +180,26 @@ class Controller(interfaces.Component, interfaces.Runnable):
 
         if isinstance(additional_argument, sockjs.protocol.SockjsMessage):
             if additional_argument.type == sockjs.protocol.MsgType.OPEN:
-                logger.info(f"WebSocket OPEN: session={session}, controller={self.name}")
+                logger.info(f"WebSocket OPEN: session={session_info}, controller={self.name}")
                 self.broadcastDetails()
                 logger.info(f"Broadcasting details on WebSocket OPEN for: {self.name}")
             elif additional_argument.type == sockjs.protocol.MsgType.MESSAGE:
-                logger.info(f"WebSocket MESSAGE received: session={session}, controller={self.name}, raw_data={additional_argument.data}")
+                logger.info(f"WebSocket MESSAGE received: session={session_info}, controller={self.name}, raw_data={additional_argument.data}")
                 try:
                     data = json.loads(additional_argument.data)
                     for endpoint, value in data.items():
-                        logger.info(f"Processing message from WebSocket: session={session}, controller={self.name}, endpoint={endpoint}, value={value}")
+                        logger.info(f"Processing message from WebSocket: session={session_info}, controller={self.name}, endpoint={endpoint}, value={value}")
                         self.callback(endpoint, value)
                 except json.JSONDecodeError as e:
-                    logger.error(f"Failed to decode WebSocket message: session={session}, controller={self.name}, error={e}, raw_data={additional_argument.data}")
-
-# Create a SystemController class extending Controller
-class SystemController(Controller):
-    def __init__(self, name="System"):
-        current_time = datetime.fromtimestamp(time()).strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-        logger.warning(f"{current_time} Initializing SystemController for {name} {current_time}")
-        super().__init__(name, sensor=None, actor=None, logic=None)
-        
-        # Register WebSocket route only if not already registered
-        existing_routes = [route for route in app.router.routes()]
-        if not any(route for route in existing_routes if f'/controllers/{self.name}/ws' in str(route.resource)):
-            sockjs.add_endpoint(app, prefix=f'/controllers/{self.name}/ws', name=f'{self.name}-ws', handler=self.websocket_handler)
-        else:
-            current_time = datetime.fromtimestamp(time()).strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-            logger.warning(f"{current_time} SystemController WebSocket route already registered for {self.name}")
-        
-        # Broadcast details on initialization
-        self.broadcastDetails()
-
-    def callback(self, endpoint, data):
-        # Handle specific System commands
-        if endpoint == "admin":
-            if data == "reboot":
-                logger.info("System: Reboot command received.")
-                os.system('sudo shutdown -r')
-                event.notify(event.Event(source=self.name, endpoint='admin', data='rebooting'))
-            elif data == "poweroff":
-                logger.info("System: Poweroff command received.")
-                os.system('sudo shutdown -P')
-                event.notify(event.Event(source=self.name, endpoint='admin', data='powering_off'))
-            else:
-                logger.warning(f"System: Unknown command received: {data}")
-        else:
-            logger.warning(f"System: Unhandled endpoint {endpoint} with data {data}")
-
-    def getDetails(self):
-        # Provide basic details for the System
-        return {
-            'name': self.name,
-            'wsUrl': f'/controllers/{self.name}/ws',
-        }
-
-    def broadcastDetails(self):
-        # Broadcast System details
-        manager = sockjs.get_manager(f'{self.name}-ws', app)
-        details = self.getDetails()
-        manager.broadcast(details)
-        logger.info(f"Broadcasting System details: {details}")
+                    logger.error(f"Failed to decode WebSocket message: session={session_info}, controller={self.name}, error={e}, raw_data={additional_argument.data}")
 
 async def listControllers(request):
+    print("listControllers called!")
     res = request.app.router['controllerDetail']
     controllers = {name: {'url': str(request.url.with_path(str(res.url_for(name=name))))} for name, component in components.items() if isinstance(component, Controller)}
     system_url = str(request.url.with_path('/controllers/System'))
     controllers['System'] = {'url': system_url}
+    print("CONTROLLER LIST:", controllers)
     return web.json_response(controllers)
 
 async def controllerDetail(request):
@@ -294,7 +235,7 @@ async def dataHistory(request):
     except KeyError as e:
         raise web.HTTPNotFound(reason=f'Unknown controller {str(e)}')
 
-async def system_handlerXXXX(session, msg, additional_argument=None, *args):
+async def system_handler(session, msg, additional_argument=None, *args):
     if isinstance(additional_argument, sockjs.protocol.SockjsMessage):
         if additional_argument.type == sockjs.protocol.MsgType.OPEN:
             pass
@@ -311,11 +252,20 @@ async def system_handlerXXXX(session, msg, additional_argument=None, *args):
         elif additional_argument.type == sockjs.protocol.MsgType.CLOSE:
             pass
 
-# Initialize and register the SystemController
-#system_controller = SystemController()
-#components["System"] = system_controller
+def print_registered_routes():
+    print("Registered routes:")
+    for route in app.router.routes():
+        if hasattr(route, 'handler'):
+            print(f"Method: {route.method}, Path: {route.resource}, Handler: {route.handler}")
+        else:
+            print(f"Path: {route.resource}")
+
 
 app.router.add_get('/controllers', listControllers)
 app.router.add_get('/controllers/{name}', controllerDetail, name='controllerDetail')
 app.router.add_get('/controllers/{name}/datahistory', dataHistory, name='dataHistory')
 
+#sockjs.add_endpoint(app, Controller.websocket_handler, name='system', prefix='/controllers/System/ws')
+
+sockjs.add_endpoint(app, prefix=f'/controllers/System/ws', name=f'System', handler=Controller.websocket_handler)
+print_registered_routes()

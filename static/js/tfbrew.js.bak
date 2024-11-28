@@ -151,24 +151,6 @@ const app = Vue.createApp({
         console.error("Heater WebSocket error:", e);
       };
     },
-
-    // Initialize System WebSocket
-    newWsConnSystem(url) {
-      console.log("Initializing System WebSocket with URL:", url);
-      this.systemWs = new SockJS(url);
-      this.systemWs.onmessage = (msg) => {
-        const data = msg.data;
-        console.log("System WebSocket message received:", data);
-      };
-      this.systemWs.onclose = () => {
-        console.log("System WebSocket closed. Reconnecting...");
-        this.newWsConnSystem(url);
-      };
-      this.systemWs.onerror = (e) => {
-        console.error("System WebSocket error:", e);
-      };
-    },
-
     // Toggles fridge power between 0 and 100
     togglePower(type) {
       const key = `${type.toLowerCase()}Power`;
@@ -262,13 +244,6 @@ const app = Vue.createApp({
       .then((response) => response.json())
       .then((data) => {
         this.controllers = data;
-        if (data.System) {
-          fetch(data.System.url)
-            .then((res) => res.json())
-            .then((systemData) => {
-              this.newWsConnSystem(systemData.wsUrl);
-            });
-        }
         if (data.Fridge) {
           fetch(data.Fridge.url)
             .then((res) => res.json())
@@ -284,6 +259,10 @@ const app = Vue.createApp({
             });
         }
       });
+
+    this.systemWs = new SockJS(
+      "http://192.168.254.53:8080/controllers/System/ws"
+    );
 
     // Update formatted date-time every second
     this.dateTimeInterval = setInterval(() => {

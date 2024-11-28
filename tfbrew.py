@@ -55,6 +55,17 @@ for ctrl in config['controllers']:
         initiallyEnabled = True if attribs.get('initialState', 'on') == 'on' else 'off'
         components[name] = controller.Controller(name, sensor, actor, logic, initialSetpoint, initiallyEnabled)
 
+# Add the System controller
+logger.info("Setting up controller: System")
+components["System"] = controller.Controller(
+    name="System",
+    sensor=None,  # No sensor for System
+    actor=None,   # No actor for System
+    logic=None,   # No logic for System
+    targetTemp=0.0,  # Default setpoint
+    initiallyEnabled=False  # System is not enabled by default
+)
+
 async def start_background_tasks(app):
     pass
 
