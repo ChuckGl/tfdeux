@@ -6,9 +6,8 @@ TFDeux is a fermentation control system for homebrewing.  It has been tested on 
 You can use it to:
 + Monitor external temperature in your fermenter using the W1Sensor plugin.
 + Monitor the beer temperature, gravity, ABV and attenuation using the Tilt Hydrometer.
-+ Turn heating and cooling on and off using the TPLinkActor (WiFi controlled socket) or the GPIOActor (raspberry pi).
-+ Maintain a stable temperature in your fermentation by combining a heater and temperature sensor in a controller
-  with process logic.
++ Turn heating and cooling on and off using the TPLinkActor (WiFi controlled socket).
++ Maintain a stable temperature in your fermentation by controlling heating and cooling based on temperature.
 + Control and monitor your fermentation process through a web frontend.
 
 TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson. TFBrew supports both the brewing and fermentation process.  The original is no longer supported, but can be made to run on current RPi platforms.
