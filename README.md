@@ -80,4 +80,4 @@ ln -s /usr/lib/python3/dist-packages/_lgpio.cpython-311-aarch64-linux-gnu.so $VI
 
 then run the tfbrew.py file
 
-Please consult the [Wiki](https://github.com/ChuckGl/tfbrew/wiki) for further information.
+Please consult the [Wiki](https://github.com/ChuckGl/tfdeux/wiki) for further information.
