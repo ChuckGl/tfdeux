@@ -52,9 +52,9 @@ Configuration is handled through the YAML configuration file (config.yaml). TFDe
 + Controllers to which the sensors and actors are assigned along with the logic used.
 + Extensions for web and/or Blynk.
 + Connections which route messages from sending to receiving endpoint. For example:
-    ```
-    Cooling.power => web.coolingpower (Sends Cooling power state to the web UI)
-    ```
+        ```
+        Cooling.power => web.coolingpower (Sends Cooling power state to the web UI)
+        ```
 
 Installation
 ============
