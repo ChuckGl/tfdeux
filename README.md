@@ -1,42 +1,44 @@
 About
 =====
 
-TFBrew is yet another beer homebrewing control system for (but not limited to) the Raspberry Pi.
+TFDeux is a fermentation control system for homebrewing.  It has been tested on Raspberry Pi but may work on other systems. It is intended to be used with a Tilt Hydrometer. 
 
 You can use it to:
-+ Monitor the temperature in your mash kettle or hot liqure tank using the W1Sensor plugin.
-+ Turn heaters and pumps on and off using the GPIOActor (raspberry pi) or the TPLinkActor (WiFi controlled socket).
-+ Maintain a stable temperature in your mash by combining a heater and temperature sensor in a controller
-  with process logic (the PIDLogic plugin).
-+ Control and monitor your brewing process through a mobile device, e.g. with a [Blynk](http://www.blynk.cc) frontend.
++ Monitor external temperature in your fermenter using the W1Sensor plugin.
++ Monitor the beer temperature, gravity, ABV and attenuation using the Tilt Hydrometer.
++ Turn heating and cooling on and off using the TPLinkActor (WiFi controlled socket) or the GPIOActor (raspberry pi).
++ Maintain a stable temperature in your fermentation by combining a heater and temperature sensor in a controller
+  with process logic.
++ Control and monitor your fermentation process through a web frontend.
 
-It aims to be a flexible, modular system allowing the user to configure it to different setups
-of homebrewing equipment.
+TFDuex is a fork of TFBrew, original written by Hrafnkell Eiríksson. TFBrew supports both the brewing and fermentation process.  The original is no longer supported, but can be made to run on current RPi platforms.
 
-TFBrew was written by Hrafnkell Eiríksson - <he@klaki.net>
-
-TFBrew is Copyright from 2017 by Hrafnkell Eiríksson and is licensed by the GNU GPL v3 license.
+TFBrew is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
 See the LICENSE file.
 
-Please consult the [Wiki](https://github.com/hrafnkelle/tfbrew/wiki) for further information.
+TFBrew is Copyright from 2017 by Hrafnkell Eiríksson and is licensed by the GNU GPL v3 license.
+
+Please consult the [Wiki](https://github.com/hrafnkelle/tfbrew/wiki) for further information on TFBrew.
 
 Plugins
 =======
-TFBrew is based around the idea of components that send each other messages. Components are implemented through plugins.
-The following components are available
+Like TFBrew, TFDeux is based on components that send each other messages. Components are implemented via plugins and assigned to controllers (Fridge and Heater).
+The following components have been tested:
 
-+ W1Sensor - for using one-wire sensors like the ds18b20
-+ RTDSensor - for using PT100 sensors through the MAX31865
 + TiltSensor - for using the Tilt Hydrometer
-+ iSpindelSensor - for using the iSpindel Hydrometer
-+ DummySensor - simulating a sensor with a configurable value + noise
-+ GPIOActor - for controlling relays (SSR) with the GPIO pins on the Raspberry Pi
++ W1Sensor - for using one-wire sensors like the ds18b20
 + TPLinkActor - for controlling a TPLink WiFi socket
-+ DummyActor - simulating an actor, just prints out the actions
-+ PIDLogic - for precise temperature control with a PID (e.g. recirculated mash)
 + HysteresisLogic - for on/off temperature control with a hysteresis (e.g. fermentation fridge control)
++ DummyActor - simulating an actor, just prints out the actions
++ DummySensor - simulating a sensor with a configurable value + noise
 + BlynkLib - for communicating with a Blynk frontend
+
+The following components have NOT been tested, but worked under TFBrew
++ RTDSensor - for using PT100 sensors through the MAX31865
++ iSpindelSensor - for using the iSpindel Hydrometer
++ GPIOActor - for controlling relays (SSR) with the GPIO pins on the Raspberry Pi
 + SimpleWebView - for viewing the state of sensors, actors, etc in a web browser
++ PIDLogic - for precise temperature control with a PID (e.g. recirculated mash)
 + Ubidots - for logging to the Ubidots IoT cloud
 
 Configuration
