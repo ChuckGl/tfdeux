@@ -58,14 +58,14 @@ Configuration is handled through the YAML configuration file (config.yaml). TFDe
 
 Installation
 ============
-TFBrew (tfmod2) requires at least Python 3.11 (for asyncio async/await support)
+TFDeux requires at least Python 3.11 (for asyncio async/await support)
 
 Clone this repository, and set up a virtualenv
 pip install the python packages in the requirements.txt file into your virtualenv
 ```
 git clone https://github.com/ChuckGl/tfbrew.git
 cd tfbrew
-git checkout tfmod2
+git checkout tfdeux
 
 # Setup python virtual environment. Required for Bookworm.  See link for more: https://www.raspberrypi.com/documentation/computers/os.html#python-on-raspberry-pi
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
