@@ -11,7 +11,7 @@ You can use it to:
   with process logic.
 + Control and monitor your fermentation process through a web frontend.
 
-TFDuex is a fork of TFBrew, original written by Hrafnkell Eiríksson. TFBrew supports both the brewing and fermentation process.  The original is no longer supported, but can be made to run on current RPi platforms.
+TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson. TFBrew supports both the brewing and fermentation process.  The original is no longer supported, but can be made to run on current RPi platforms.
 
 TFBrew is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
 See the LICENSE file.
