@@ -1,6 +1,8 @@
+# Sample configuration for all tested components
+
 # Log level for console and log file output
 consoleLoglevel: WARNING
-logLevel: INFO
+logLevel: INFO                  # Log file located at ~/tfdeux/tfdeux.log
 
 # Enable/disable Web UI and set port
 port: 8080
@@ -9,90 +11,70 @@ enableWebUI: True
 sensors:
   - Onewire:
       plugin: W1Sensor
-      id: 28-3ce1e380c8b2  # Unique ID for the 1-Wire sensor
-      pollInterval: 30     # How often (in seconds) to poll the sensor
-      sendtime: 10         # Time (in seconds) between sending data updates
+      id: 28-3ce1e380c8b2       # Unique ID for the 1-Wire sensor
+      pollInterval: 30          # How often (in seconds) to poll the sensor
+      sendtime: 10              # Time (in seconds) between sending data updates
 
   - TiltYellow:
       plugin: TiltSensor
-      color: Yellow        # Color of the Tilt sensor
-      tempclbr: 0          # Temperature calibration offset
-      gravclbr: 0          # Gravity calibration offset
-      startgrav: 1.0612    # Starting gravity value
-      sendtime: 10         # Time (in seconds) between sending data updates
+      color: Yellow             # Color of the Tilt sensor
+      tempclbr: 0               # Temperature calibration offset
+      gravclbr: 0               # Gravity calibration offset
+      startgrav: 1.0612         # Starting gravity value
+      sendtime: 10              # Time (in seconds) between sending data updates
       
   - FakeTilt:
       plugin: DummySensor 
-      # Simulates a Tilt sensor with both temperature and gravity
-      type: tilt
-      fakeTemp: 60         # Fake temperature reading for the simulated Tilt sensor
-      fakeGravity: 1.065    # Fake gravity reading for the simulated Tilt sensor
+      type: tilt                # Simulates a Tilt sensor with both temperature and gravity
+      fakeTemp: 60              # Fake temperature reading for the simulated Tilt sensor
+      fakeGravity: 1.065        # Fake gravity reading for the simulated Tilt sensor
 
   - FakeTemp:
       plugin: DummySensor
-      # Simulates a thermometer sensor that provides only temperature
-      type: thermo
-      fakeTemp: 50         # Fake temperature reading for the simulated thermometer
+      type: thermo              # Simulates a thermometer sensor that provides only temperature
+      fakeTemp: 50              # Fake temperature reading for the simulated thermometer
 
   - FakeHydro:
       plugin: DummySensor
-      # Simulates a hydrometer that provides only gravity
-      type: hydro
-      fakeGravity: 1.055    # Fake gravity reading for the simulated hydrometer
+      type: hydro               # Simulates a hydrometer that provides only gravity
+      fakeGravity: 1.055        # Fake gravity reading for the simulated hydrometer
 
 actors:
   - Cooling:
-      plugin: DummyActor    # A dummy actor for cooling; replace with actual actor if needed
+      plugin: DummyActor        # A dummy actor for cooling; replace with actual actor if needed
 
   - Heating:
-      plugin: TPLinkActor   # TPLink actor for heating
-      ip: 192.168.111.2     # IP address of the TPLink device controlling heating
+      plugin: TPLinkActor       # TPLink actor for heating
+      ip: 192.168.111.2         # IP address of the TPLink device controlling heating
 
 controllers:
   - Fridge:
-      plugin: HysteresisLogic
+      plugin: HysteresisLogic   # Logic plugin for control of assigned actor
       logicCoeffs:
-        allowedOvershoot: 0.4  # How much temperature can rise above setpoint before action is taken
-        allowedUndershoot: 0.4 # How much temperature can drop below setpoint before action is taken
-        keepCold: yes          # Keep the fridge cold
-      actor: Cooling           # The actor controlling cooling
-      sensor: TiltYellow       # The sensor providing temperature data
-      initialSetpoint: 55.0    # Initial setpoint temperature in Fahrenheit
-      initialState: on         # Initial state of the controller (on/off)
+        allowedOvershoot: 0.4   # How much temperature can rise above setpoint before action is taken
+        allowedUndershoot: 0.4  # How much temperature can drop below setpoint before action is taken
+        keepCold: yes           # Keep the fridge cold
+      actor: Cooling            # The actor controlling cooling
+      sensor: TiltYellow        # The sensor providing temperature data
+      initialSetpoint: 55.0     # Initial setpoint temperature in Fahrenheit
+      initialState: on          # Initial state of the controller (on/off)
 
   - Heater:
-      plugin: HysteresisLogic
+      plugin: HysteresisLogic   # Logic plugin for control of assigned actor
       logicCoeffs:
-        allowedOvershoot: 0.4  # How much temperature can rise above setpoint before action is taken
-        allowedUndershoot: 0.4 # How much temperature can drop below setpoint before action is taken
-        keepHot: yes           # Keep the heater on to maintain warmth
-      actor: Heating           # The actor controlling heating
-      sensor: TiltYellow       # The sensor providing temperature data
-      initialSetpoint: 50.0    # Initial setpoint temperature in Fahrenheit
-      initialState: off        # Initial state of the controller (on/off)
+        allowedOvershoot: 0.4   # How much temperature can rise above setpoint before action is taken
+        allowedUndershoot: 0.4  # How much temperature can drop below setpoint before action is taken
+        keepHot: yes            # Keep the heater on to maintain warmth
+      actor: Heating            # The actor controlling heating
+      sensor: TiltYellow        # The sensor providing temperature data
+      initialSetpoint: 50.0     # Initial setpoint temperature in Fahrenheit
+      initialState: off         # Initial state of the controller (on/off)
 
 extensions:
   - web:
       plugin: SimpleWebView
       endpoints:
-        - enable               # Endpoint to enable/disable the system
-        - setpoint             # Endpoint to change the setpoint temperature
-        - heaterpower          # Endpoint to monitor the heater power
+        - enable                # Endpoint to enable/disable the system
 
 connections:
-  - web.enable => Fridge.state        # Web UI to control Fridge state
-  - web.enable => Heater.state        # Web UI to control Heater state
-  - web.setpoint => Fridge.setpoint   # Web UI to change Fridge setpoint
-  - web.setpoint => Heater.setpoint   # Web UI to change Heater setpoint
-  - Fridge.temperature => web.fridgetemp  # Send Fridge temperature to the web UI
-  - TiltYellow.temperature => web.tilttemp  # Send Tilt sensor temperature to the web UI
-  - TiltYellow.gravity => web.tiltgravity   # Send Tilt sensor gravity to the web UI
-  - Cooling.power => web.coolingpower       # Send Cooling power state to the web UI
-  - Heating.power => web.heatingpower       # Send Heating power state to the web UI
-
-rigs:
-  - Fermenter:
-      assignedCtrls:
-        - Fridge
-        - Heater
-
+  - web.enable => Fridge.state  # Web UI to control Fridge state
