@@ -17,6 +17,7 @@ TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson.  TFBrew su
 + vue 3.5.13
 + quasar 2.17.4
 + echarts 5.5.1
++ blynk 2.0
 
 TFDeux is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
 See the LICENSE file.
