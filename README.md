@@ -10,9 +10,15 @@ You can use it to:
 + Maintain a stable temperature in your fermentation by controlling heating and cooling based on temperature.
 + Control and monitor your fermentation process through a web frontend.
 
-TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson. TFBrew supports both the brewing and fermentation process.  The original is no longer supported, but can be made to run on current RPi platforms.
+TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson.  TFBrew supports both the brewing and fermentation process.  The original is no longer maintained, but can be made to run on current RPi platforms.  However, some underlying packages are problematic and/or deprecated with Raspberry Pi OS Bookworm.  TFDeux has been migrated to uses:
 
-TFBrew is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
++ aioblescan 0.2.14
++ rpi-lgpio 0.6
++ vue 3.5.13
++ quasar 2.17.4
++ echarts 5.5.1
+
+TFDeux is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
 See the LICENSE file.
 
 TFBrew is Copyright from 2017 by Hrafnkell Eiríksson and is licensed by the GNU GPL v3 license.
