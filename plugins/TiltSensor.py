@@ -1,10 +1,13 @@
+# filename: TiltSensor.py
+
+import aioblescan as aiobs
 import asyncio
 import datetime
 import logging
-import aioblescan as aiobs
 from decimal import Decimal, ROUND_HALF_UP
-from event import notify, Event
 from collections import deque
+
+from event import notify, Event
 
 logger = logging.getLogger(__name__)
 

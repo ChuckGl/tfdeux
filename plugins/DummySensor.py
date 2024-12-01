@@ -1,8 +1,10 @@
+# filename: DummySensor.py
+
 import asyncio
 from random import normalvariate
 
-from interfaces import Sensor
 from event import notify, Event
+from interfaces import Sensor
 
 def factory(name, settings):
     sensor_type = settings.get('type')

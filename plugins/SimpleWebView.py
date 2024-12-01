@@ -1,16 +1,16 @@
-from functools import partial
-import asyncio
-import struct
-import time
-import sys
-import logging
+# filename: SimpleWebView.py
 
+import asyncio
+import logging
+import struct
+import sys
+import time
 from aiohttp import web
+from functools import partial
 
 import interfaces
-from event import notify, Event
-
 from common import app
+from event import notify, Event
 
 logger = logging.getLogger(__name__)
 

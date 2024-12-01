@@ -1,6 +1,5 @@
-"""
-PID Control for the masses
-"""
+# filename: PIDLogic.py
+
 # This code is based on the Arduino-PID-Library 
 # https://github.com/br3ttb/Arduino-PID-Library
 #

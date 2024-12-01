@@ -1,5 +1,5 @@
 consoleLoglevel: WARNING
-logLevel: DEBUG
+logLevel: INFO
 
 port: 8080
 enableWebUI: True

@@ -1,8 +1,9 @@
-import asyncio
-import logging
+# filename: iSpindelSensor.py
 
-from aiohttp import web
+import asyncio
 import json
+import logging
+from aiohttp import web
 
 import interfaces
 from common import app

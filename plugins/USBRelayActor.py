@@ -1,6 +1,9 @@
-from interfaces import Actor
-from event import notify, Event
+# filename: USBRelayActor.py
+
 from subprocess import call
+
+from event import notify, Event
+from interfaces import Actor
 
 def factory(name, settings):
     return USBRelayActor(name, settings['id'], settings.get('inverted', False))

@@ -1,9 +1,12 @@
-import logging
+# filename: RTDSensor.py
+
 import aiofiles
 import asyncio
+import logging
 import math
-from time import sleep
 import spidev
+from time import sleep
+
 from event import notify, Event
 from interfaces import Sensor
 

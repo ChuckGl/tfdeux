@@ -1,10 +1,9 @@
-"""
-TFBrew extension for logging to the Ubidots IoT cloud
-"""
-import asyncio
-import logging
-import json
+# filename: UbidotsLogger.py
+
 import aiohttp
+import asyncio
+import json
+import logging
 
 import interfaces
 

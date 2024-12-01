@@ -1,5 +1,6 @@
-// tfbrew2.js
-// Main JavaScript for TFBrew visualization with ECharts and Vue.js
+// filename: tfdeux2.js
+
+// Main JavaScript for TFDeux visualization with ECharts and Vue.js
 
 // Import global objects
 const { createApp, ref, defineComponent } = Vue;
@@ -166,7 +167,7 @@ createApp({
     template: `
         <div>
             <div class="header-info">
-                <div>TFBrew</div>
+                <div>TFDeux</div>
                 <div class="header-item">
                     OG: {{ originalGravity !== null ? originalGravity.toFixed(4) : 'Loading...' }}
                 </div>

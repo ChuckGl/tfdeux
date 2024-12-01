@@ -1,5 +1,7 @@
-from interfaces import Actor
+# filename: GPIOActor.py
+
 from event import notify, Event
+from interfaces import Actor
 
 import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)

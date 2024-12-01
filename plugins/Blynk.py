@@ -1,8 +1,8 @@
 # filename: Blynk.py
 
 import asyncio
-import logging
 import BlynkLib
+import logging
 
 import interfaces
 from event import notify, Event

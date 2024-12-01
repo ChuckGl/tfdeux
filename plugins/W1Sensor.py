@@ -1,17 +1,13 @@
-# W1Sensor.py
-# 
-# Changelog:
-#  08-FEB-24: Update to fixes from michaelcadilhac's fork and changed return value to Fahrenheit
-#
-# Ver: 1.0
+# filename: W1Sensor.py
 
-import logging
 import aiofiles
 import asyncio
 import datetime
+import logging
 import re
-from interfaces import Sensor
+
 from event import notify, Event
+from interfaces import Sensor
 
 logger = logging.getLogger(__name__)
 

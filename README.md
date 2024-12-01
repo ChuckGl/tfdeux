@@ -10,9 +10,18 @@ You can use it to:
 + Maintain a stable temperature in your fermentation by controlling heating and cooling based on temperature.
 + Control and monitor your fermentation process through a web frontend.
 
-TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson. TFBrew supports both the brewing and fermentation process.  The original is no longer supported, but can be made to run on current RPi platforms.
+TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson.  TFBrew supports both the brewing and fermentation process.  The original is no longer maintained, but can be made to run on current RPi platforms.  However, some underlying packages are problematic and/or deprecated with Raspberry Pi OS Bookworm.  TFDeux also includes changes made to TFBrew by Michaël Cadilhac.
 
-TFBrew is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
+TFDeux has been migrated to uses:
+
++ aioblescan 0.2.14
++ rpi-lgpio 0.6
++ vue 3.5.13
++ quasar 2.17.4
++ echarts 5.5.1
++ blynk 2.0
+
+TFDeux is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
 See the LICENSE file.
 
 TFBrew is Copyright from 2017 by Hrafnkell Eiríksson and is licensed by the GNU GPL v3 license.
@@ -63,8 +72,8 @@ TFDeux requires at least Python 3.11 (for asyncio async/await support)
 Clone this repository, and set up a virtualenv
 pip install the python packages in the requirements.txt file into your virtualenv
 ```
-git clone https://github.com/ChuckGl/tfbrew.git
-cd tfbrew
+git clone https://github.com/ChuckGl/tfdeux.git
+cd tfdeux
 git checkout tfdeux
 
 # Setup python virtual environment. Required for Bookworm.  See link for more: https://www.raspberrypi.com/documentation/computers/os.html#python-on-raspberry-pi
@@ -78,6 +87,7 @@ ln -s /usr/lib/python3/dist-packages/_lgpio.cpython-311-aarch64-linux-gnu.so $VI
 
 ```
 
-then run the tfbrew.py file
+then run the tfdeux.py file
 
-Please consult the [Wiki](https://github.com/ChuckGl/tfbrew/wiki) for further information.
+Please consult the [Wiki](https://github.com/ChuckGl/tfdeux/wiki) for further information.
+

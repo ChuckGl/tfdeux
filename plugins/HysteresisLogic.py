@@ -1,15 +1,7 @@
-# HysteresisLogic.py
-# 
-# Changelog:
-#  20-FEB-24: Updated some print statements to provide more data when troubleshooting.
-#  22-FEB-24: Added event.notify to initiate push of Undershoot/Overshoot values to Blynk and Web.
-#               Added rounding and float to to limit to 1st decimal though values coming from Blynk
-#               have 5 trailing zeros for some reason.
-#
-# Ver: 1.0
+# filename: HysteresisLogic.py
 
-import interfaces
 import event
+import interfaces
 from event import notify, Event
 
 

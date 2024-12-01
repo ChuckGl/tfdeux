@@ -1,16 +1,16 @@
-# filename: tfbrew.py
+# filename: tfdeux.py
 
-import sys
-import os
+import asyncio
 import importlib
 import logging
-import asyncio
+import os
+import sys
 from aiohttp import web
 from ruamel.yaml import YAML
 
-import interfaces
 import controller
 import event
+import interfaces
 from common import app, components
 
 yaml = YAML(typ='safe')
@@ -22,7 +22,7 @@ print(f"Using config from {configFile}")
 config = yaml.load(open(configFile, mode='r'))
 
 logLevel = getattr(logging, config.get('logLevel', 'WARNING').upper(), logging.WARNING)
-logging.basicConfig(level=logLevel, format='%(asctime)s:%(levelname)s:%(name)s:%(message)s', filename='tfbrew.log', filemode='w+')
+logging.basicConfig(level=logLevel, format='%(asctime)s:%(levelname)s:%(name)s:%(message)s', filename='tfdeux.log', filemode='w+')
 logger = logging.getLogger(__name__)
 console = logging.StreamHandler()
 console.setLevel(config.get('consoleLoglevel', 'WARNING'))

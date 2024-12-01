@@ -1,22 +1,24 @@
 # filename: controller.py
-from datetime import datetime
-import os
-import sys
-import asyncio
-import logging
+
 import json
+import asyncio
+import decimal
+import json
+import logging
+import os
 import sockjs
 import subprocess
-import decimal
-from time import time
+import sys
 from aiohttp import web
+from datetime import datetime
+from time import time
 
-import plugins.system_command_handler as system_handler
-import interfaces
 import event
+import interfaces
+import syscontroller
 from common import app, components
-from plugins.W1Sensor import W1Sensor
 from plugins.DummySensor import DummySensor
+from plugins.W1Sensor import W1Sensor
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ class Controller(interfaces.Component, interfaces.Runnable):
     def callback(self, endpoint, data):
         includeSetpoint = True
         if self.name == "System":
-            system_handler.handle_system_command(endpoint, data, controller_name=self.name)
+            syscontroller.handle_system_command(endpoint, data, controller_name=self.name)
         elif endpoint in ['state', 'enabled']:
             self.enabled = bool(data)
             self.actor.updatePower(0.0)
@@ -186,22 +188,17 @@ class Controller(interfaces.Component, interfaces.Runnable):
     async def websocket_handler(self, session, msg, additional_argument=None, *args):
         try:
             session_info = str(session)  # Fallback to string representation
-            logger.info(f"WebSocket Handler invoked for: {self.name} (session={session_info})")
         except Exception as e:
             logger.error(f"Error inspecting session object: {e}")
             session_info = "unknown"
 
         if isinstance(additional_argument, sockjs.protocol.SockjsMessage):
             if additional_argument.type == sockjs.protocol.MsgType.OPEN:
-                logger.info(f"WebSocket OPEN: session={session}, controller={self.name}")
                 self.broadcastDetails()
-                logger.info(f"Broadcasting details on WebSocket OPEN for: {self.name}")
             elif additional_argument.type == sockjs.protocol.MsgType.MESSAGE:
-                logger.info(f"WebSocket MESSAGE received: session={session}, controller={self.name}, raw_data={additional_argument.data}")
                 try:
                     data = json.loads(additional_argument.data)
                     for endpoint, value in data.items():
-                        logger.info(f"Processing message from WebSocket: session={session}, controller={self.name}, endpoint={endpoint}, value={value}")
                         self.callback(endpoint, value)
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to decode WebSocket message: session={session}, controller={self.name}, error={e}, raw_data={additional_argument.data}")
@@ -210,7 +207,6 @@ class Controller(interfaces.Component, interfaces.Runnable):
 class SystemController(Controller):
     def __init__(self, name="System"):
         current_time = datetime.fromtimestamp(time()).strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-        logger.warning(f"{current_time} Initializing SystemController for {name} {current_time}")
         super().__init__(name, sensor=None, actor=None, logic=None)
         
         # Register WebSocket route only if not already registered
@@ -219,7 +215,6 @@ class SystemController(Controller):
             sockjs.add_endpoint(app, prefix=f'/controllers/{self.name}/ws', name=f'{self.name}-ws', handler=self.websocket_handler)
         else:
             current_time = datetime.fromtimestamp(time()).strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-            logger.warning(f"{current_time} SystemController WebSocket route already registered for {self.name}")
         
         # Broadcast details on initialization
         self.broadcastDetails()
@@ -252,7 +247,6 @@ class SystemController(Controller):
         manager = sockjs.get_manager(f'{self.name}-ws', app)
         details = self.getDetails()
         manager.broadcast(details)
-        logger.info(f"Broadcasting System details: {details}")
 
 async def listControllers(request):
     res = request.app.router['controllerDetail']
@@ -293,23 +287,6 @@ async def dataHistory(request):
         return web.json_response(data)
     except KeyError as e:
         raise web.HTTPNotFound(reason=f'Unknown controller {str(e)}')
-
-async def system_handlerXXXX(session, msg, additional_argument=None, *args):
-    if isinstance(additional_argument, sockjs.protocol.SockjsMessage):
-        if additional_argument.type == sockjs.protocol.MsgType.OPEN:
-            pass
-        elif additional_argument.type == sockjs.protocol.MsgType.MESSAGE:
-            if additional_argument.data == "reboot":
-                os.system('sudo shutdown -r')
-                logger.info("***** System Rebooting in 1 minute, use sudo shutdown -c to cancel *****")
-            elif additional_argument.data == "poweroff":
-                os.system('sudo shutdown -P')
-                logger.info("***** System Powering Off in 1 minute, use sudo shutdown -c to cancel *****")
-            else:
-                logger.info("Unknown command received from System Admin WebSocket")
-
-        elif additional_argument.type == sockjs.protocol.MsgType.CLOSE:
-            pass
 
 # Initialize and register the SystemController
 #system_controller = SystemController()

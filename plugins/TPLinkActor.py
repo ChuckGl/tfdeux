@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
-from interfaces import Actor
 from event import notify, Event
+from interfaces import Actor
 
 logger = logging.getLogger(__name__)
 

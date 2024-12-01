@@ -1,5 +1,6 @@
-// tfbrew.js
-// Main Vue App for TFBrew Fermentation Controller
+// filename: tfdeux.js
+
+// Main Vue App for TFDeux Fermentation Controller
 
 const app = Vue.createApp({
   data() {
@@ -103,11 +104,9 @@ const app = Vue.createApp({
   methods: {
     // Initialize Fridge WebSocket
     newWsConnFridge(url) {
-      console.log("Initializing Fridge WebSocket with URL:", url);
       this.fridgeWs = new SockJS(url);
       this.fridgeWs.onmessage = (msg) => {
         const data = msg.data;
-        console.log("Fridge WebSocket message received:", data);
         Object.assign(this.controllerState, {
           temperature: data.temperature,
           w1Temperature: data.w1temperature,
@@ -122,7 +121,6 @@ const app = Vue.createApp({
         });
       };
       this.fridgeWs.onclose = () => {
-        console.log("Fridge WebSocket closed. Reconnecting...");
         this.newWsConnFridge(url);
       };
       this.fridgeWs.onerror = (e) => {
@@ -131,11 +129,9 @@ const app = Vue.createApp({
     },
     // Initialize Heater WebSocket
     newWsConnHeater(url) {
-      console.log("Initializing Heater WebSocket with URL:", url);
       this.heaterWs = new SockJS(url);
       this.heaterWs.onmessage = (msg) => {
         const data = msg.data;
-        console.log("Heater WebSocket message received:", data);
         Object.assign(this.controllerState, {
           heaterEnabled: data.enabled,
           heaterAutomatic: data.automatic,
@@ -144,7 +140,6 @@ const app = Vue.createApp({
         });
       };
       this.heaterWs.onclose = () => {
-        console.log("Heater WebSocket closed. Reconnecting...");
         this.newWsConnHeater(url);
       };
       this.heaterWs.onerror = (e) => {
@@ -154,14 +149,11 @@ const app = Vue.createApp({
 
     // Initialize System WebSocket
     newWsConnSystem(url) {
-      console.log("Initializing System WebSocket with URL:", url);
       this.systemWs = new SockJS(url);
       this.systemWs.onmessage = (msg) => {
         const data = msg.data;
-        console.log("System WebSocket message received:", data);
       };
       this.systemWs.onclose = () => {
-        console.log("System WebSocket closed. Reconnecting...");
         this.newWsConnSystem(url);
       };
       this.systemWs.onerror = (e) => {
@@ -192,7 +184,6 @@ const app = Vue.createApp({
       if (ws?.readyState === SockJS.OPEN) {
         const newState = !this.controllerState[key];
         this.controllerState[key] = newState;
-        console.log("toggleState Sending:", mappedKey, newState);
         ws.send(JSON.stringify({ [mappedKey]: newState }));
       } else {
         console.error(`${type} WebSocket is not open.`);
@@ -230,7 +221,6 @@ const app = Vue.createApp({
     // Send system admin command (reboot, shutdown)
     sendSystemCommand(command) {
       if (this.systemWs?.readyState === SockJS.OPEN) {
-        console.log(`Sending ${command} command`);
         //this.systemWs.send(command);
         this.systemWs.send(JSON.stringify({ admin: command }));
       } else {
@@ -257,7 +247,6 @@ const app = Vue.createApp({
   },
   mounted() {
     // Establish connections to controllers and fetch details
-    console.log("Fetching controller details from /controllers endpoint");
     fetch("/controllers")
       .then((response) => response.json())
       .then((data) => {
@@ -427,7 +416,7 @@ const app = Vue.createApp({
           <!-- Footer -->
           <q-footer class="bg-dark text-white q-px-md q-py-sm" elevated>
             <div class="row justify-between text-body2 items-center">
-              <div>TFBrew</div>
+              <div>TFDeux</div>
               <div>OG: {{ formattedOriginalGravity }}</div>
               <div>{{ formattedDateTime }}</div>
             </div>

@@ -1,0 +1,12 @@
+[Unit]
+Description=TFDeux - Fermentation control
+Documentation=https://github.com/hrafnkelle/tfdeux/wiki
+
+[Service]
+WorkingDirectory=/home/pi/tfdeux
+ExecStart=/home/pi/tfdeux/.venv/bin/python /home/pi/tfdeux/tfdeux.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
