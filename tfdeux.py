@@ -31,18 +31,27 @@ logging.getLogger('aiohttp.access').setLevel(logging.ERROR)  # Suppress access l
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "plugins"))
 
-for conn in config['connections']:
-    sendEvent, recvEvent = conn.split('=>')
-    sendComponent, sendType = sendEvent.split('.')
-    recvComponent, recvType = recvEvent.split('.')
-    event.register(sendEvent, lambda event, rc=recvComponent, rt=recvType: components[rc].callback(rt, event))
+if 'connections' in config and config['connections']:
+    for conn in config['connections']:
+        sendEvent, recvEvent = conn.split('=>')
+        sendComponent, sendType = sendEvent.split('.')
+        recvComponent, recvType = recvEvent.split('.')
+        event.register(
+            sendEvent, 
+            lambda event, rc=recvComponent, rt=recvType: components[rc].callback(rt, event)
+        )
+else:
+    logger.warning(f"No connections")
 
 for componentType in ['sensors', 'actors', 'extensions']:
-    for component in config[componentType]:
-        for name, attribs in component.items():
-            logger.info(f"Setting up {componentType}: {name}")
-            plugin = importlib.import_module(f'plugins.{attribs["plugin"]}')
-            components[name] = plugin.factory(name, attribs)
+    if componentType in config and config[componentType]:
+        for component in config[componentType]:
+            for name, attribs in component.items():
+                logger.info(f"Setting up {componentType}: {name}")
+                plugin = importlib.import_module(f'plugins.{attribs["plugin"]}')
+                components[name] = plugin.factory(name, attribs)
+    else:
+        logger.warning(f"No {componentType}")
 
 for ctrl in config['controllers']:
     for name, attribs in ctrl.items():

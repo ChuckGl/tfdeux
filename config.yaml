@@ -10,13 +10,10 @@ sensors:
       id: 28-0300a279cd1d
       pollInterval: 30
       sendtime: 10
-      #plugin: DummySensor
-      #type: thermo
-      #fakeTemp: 50
 
-  - TiltYellow:
+  - Tilt:
       plugin: TiltSensor
-      color: Yellow
+      color: Black
       tempclbr: 0
       gravclbr: 0
       startgrav: 1.0633
@@ -24,14 +21,14 @@ sensors:
 
 actors:
   - Cooling:
-      plugin: DummyActor
-      #plugin: TPLinkActor
-      #ip: 192.168.254.10
+      #plugin: DummyActor
+      plugin: TPLinkActor
+      ip: 192.168.254.10
 
   - Heating:
-      plugin: DummyActor
-      #plugin: TPLinkActor
-      #ip: 192.168.254.11
+      #plugin: DummyActor
+      plugin: TPLinkActor
+      ip: 192.168.254.11
 
 controllers:
   - Fridge:
@@ -41,7 +38,7 @@ controllers:
         allowedUndershoot: 0.4
         keepCold: yes
       actor: Cooling
-      sensor: TiltYellow
+      sensor: Tilt
       initialSetpoint: 65.0 
       initialState: on
 
@@ -52,16 +49,7 @@ controllers:
         allowedUndershoot: 0.4
         keepHot: yes
       actor: Heating
-      sensor: TiltYellow
+      sensor: Tilt
       initialSetpoint: 64.0 
       initialState: on
-
-extensions:
-  - web:
-      plugin: SimpleWebView
-      endpoints:
-        - enable
-
-connections:
-  - web.enable => Fridge.state
 
