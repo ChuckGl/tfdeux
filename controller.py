@@ -288,10 +288,6 @@ async def dataHistory(request):
     except KeyError as e:
         raise web.HTTPNotFound(reason=f'Unknown controller {str(e)}')
 
-# Initialize and register the SystemController
-#system_controller = SystemController()
-#components["System"] = system_controller
-
 app.router.add_get('/controllers', listControllers)
 app.router.add_get('/controllers/{name}', controllerDetail, name='controllerDetail')
 app.router.add_get('/controllers/{name}/datahistory', dataHistory, name='dataHistory')
