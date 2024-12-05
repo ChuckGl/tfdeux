@@ -82,15 +82,12 @@ git checkout tfdeux
 # Setup python virtual environment. Required for Bookworm.  See link for more: https://www.raspberrypi.com/documentation/computers/os.html#python-on-raspberry-pi
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
-NOTE: The below steps MAY not be required with the November 19 2024 or newer versions.
-# Link virtual environment to system-level lgpio package. The lgpio package in combination with rpi-lgpio replaces RPi.GPIO in bookworm. The lgpio package is managed using apt which is not supported in virtual environments. This gets around that issue for now.
-ln -s /usr/lib/python3/dist-packages/lgpio.py $VIRTUAL_ENV/lib/python3.11/site-packages/lgpio.py
-ln -s /usr/lib/python3/dist-packages/lgpio-0.2.2.0.egg-info $VIRTUAL_ENV/lib/python3.11/site-packages/lgpio-0.2.2.0.egg-info
-ln -s /usr/lib/python3/dist-packages/_lgpio.cpython-311-aarch64-linux-gnu.so $VIRTUAL_ENV/lib/python3.11/site-packages/_lgpio.cpython-311-aarch64-linux-gnu.so
+# Setup permissions for aioblescan to get TILT data via BLE.
+sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/bin/python3.11
 
 ```
 
-then run the tfdeux.py file
+then run the `python tfdeux.py` file
 
 Please consult the [Wiki](https://github.com/ChuckGl/tfdeux/wiki) for further information.
 
