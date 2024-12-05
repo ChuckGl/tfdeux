@@ -17,8 +17,6 @@ import event
 import interfaces
 import syscontroller
 from common import app, components
-from plugins.DummySensor import DummySensor
-from plugins.W1Sensor import W1Sensor
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +24,7 @@ HISTORY_SIZE = 1440
 
 class Controller(interfaces.Component, interfaces.Runnable):
     def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False):
-        #self.w1sensor = W1Sensor(name='Onewire', sensorId='28-0300a279cd1d')
-        self.w1sensor = DummySensor(name='Onewire', fakeTemp=50, fakeGravity=0.0, sensor_type='thermo')
+        self.w1sensor = components.get('Onewire')
         self.name = name
         self._enabled = initiallyEnabled
         self._autoMode = True
