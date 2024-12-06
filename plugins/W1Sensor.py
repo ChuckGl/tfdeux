@@ -22,7 +22,7 @@ def factory(name, settings):
     w1sensor = W1Sensor(name, sensor_id, offset, poll_interval, send_time)
     if not w1sensor.is_sensor_available():
         logger.warning(f"Sensor not found. Switching to DummySensor.")
-        dsFactory = dsfactory(name, {'type': 'thermo', 'fakeTemp': 160})
+        dsFactory = dsfactory(name, {'type': 'thermo', 'fakeTemp': 60})
         return dsFactory
     return w1sensor
 
