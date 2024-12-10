@@ -1,6 +1,6 @@
 [Unit]
 Description=TFDeux - Fermentation control
-Documentation=https://github.com/hrafnkelle/tfdeux/wiki
+Documentation=https://github.com/ChuckGl/tfdeux/wiki
 
 [Service]
 WorkingDirectory=/home/pi/tfdeux
