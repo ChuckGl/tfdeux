@@ -55,17 +55,19 @@ class Controller(interfaces.Component, interfaces.Runnable):
         elif endpoint in ['state', 'enabled']:
             self.enabled = bool(data)
             self.actor.updatePower(0.0)
-            logger.info(f"Setting {self.name} controller enabled to {bool(data)}")
+            state_text = "ENABLED" if bool(data) else "DISABLED"
+            logger.info(f"Setting controller {self.name} to {state_text}")
         elif endpoint == 'automatic':
             self.actor.updatePower(0.0)
             self.automatic = bool(data)
-            logger.info(f"Setting {self.name} controller automatic to {bool(self._autoMode)}")
+            mode_text = "AUTOMATIC" if self._autoMode else "MANUAL"
+            logger.info(f"Setting controller {self.name} to {mode_text}")
         elif endpoint == 'setpoint':
             self.setSetpoint(float(data))
             includeSetpoint = True
         elif endpoint == 'power':
             self.actor.updatePower(float(data))
-            logger.info(f"Setting {self.name} controller power to {float(data)}")
+            logger.debug(f"Setting {self.name} controller power to {float(data)}")
         else:
             self.logic.callback(endpoint, data)
 
