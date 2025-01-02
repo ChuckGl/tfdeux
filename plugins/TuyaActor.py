@@ -32,22 +32,26 @@ class TuyaActor(Actor):
 
     def off(self):
         """Turn the device socket off."""
-        self.updatePower(0)
+        self.updatePower(0, force=True)
 
-    def updatePower(self, power):
+    def updatePower(self, power, force=False):
         """Update the power state and notify."""
-        if self.power == power:
-            # Skip redundant state-setting
-            logger.debug(f"{self.name}: Power state already set to {power}, skipping update.")
+        if power not in [0, 100]:  # Allow only valid power states for Tuya devices
+            logger.warning(f"{self.name}: Invalid power value: {power}. Skipping update.")
             return
 
         try:
             state = power == 100
-            self.device.set_value(self.dps, state)
-            self.power = power
-            self.state = "ON" if state else "OFF"
+            if self.power != power or force:  # Prevent redundant state updates
+                self.device.set_value(self.dps, state)
+                self.power = power
+                self.state = "ON" if state else "OFF"
+                logger.info(f"{self.name} set to {'ON' if state else 'OFF'}")
+            else:
+                logger.debug(f"{self.name}: Power state already set to {power}, skipping redundant update.")
+
+            # Notify even if state didn't change, for consistency
             notify(Event(source=self.name, endpoint="power", data=int(self.power)))
-            logger.info(f"{self.name} set to {'ON' if state else 'OFF'}")
         except Exception as e:
             logger.error(f"Error setting power for {self.name}: {e}")
 

@@ -9,5 +9,7 @@
 - [ ] Add data_history retention
 
 ## Completed
-- [x] Update tfdeux to latest
+- [x] Updated tfdeux to latest
+- [x] Updated tfdeux.py to set actors to OFF at initialization
+- [x] Updated TuyaActor to set sockets to prevent redundant commands to device
 

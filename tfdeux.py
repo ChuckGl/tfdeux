@@ -28,6 +28,7 @@ console = logging.StreamHandler()
 console.setLevel(config.get('consoleLoglevel', 'WARNING'))
 logging.getLogger('').addHandler(console)
 logging.getLogger('aiohttp.access').setLevel(logging.ERROR)  # Suppress access logs
+logging.getLogger("tinytuya").setLevel(logging.INFO) # Suppress DEBUG logs from tinytuya
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "plugins"))
 
@@ -53,6 +54,20 @@ for componentType in ['sensors', 'actors', 'extensions']:
     else:
         logger.warning(f"No {componentType}")
 
+# Explicitly set all actors to off at initialization
+if 'actors' in config and config['actors']:
+    for component in config['actors']:
+        for name in component:
+            try:
+                actor = components.get(name)
+                if actor:
+                    actor.off()
+                    logger.info(f"Actor {name} initialized to OFF state.")
+                else:
+                    logger.warning(f"Actor {name} not found in components.")
+            except Exception as e:
+                logger.error(f"Failed to initialize actor {name} to OFF state: {e}")
+
 for ctrl in config['controllers']:
     for name, attribs in ctrl.items():
         logger.info(f"Setting up controller: {name}")
@@ -61,7 +76,7 @@ for ctrl in config['controllers']:
         sensor = components[attribs['sensor']]
         actor = components[attribs['actor']]
         initialSetpoint = attribs.get('initialSetpoint', 67.0)
-        initiallyEnabled = True if attribs.get('initialState', 'on') == 'on' else 'off'
+        initiallyEnabled = True if attribs.get('initialState', 'on') == 'on' else False
         components[name] = controller.Controller(name, sensor, actor, logic, initialSetpoint, initiallyEnabled)
 
 # Add the System controller
@@ -99,8 +114,4 @@ if isWebUIenabled:
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     web.run_app(app, port=config.get('port', 8080), loop=loop)
-
-for route in app.router.routes():
-    if hasattr(route, 'handler'):
-        print(f"Method: {route.method}, Path: {route._path}, Handler: {route.handler}")
 
