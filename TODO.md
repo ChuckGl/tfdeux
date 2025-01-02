@@ -1,6 +1,7 @@
 # To-Do List
 
 ## High Priority
+- [ ] Graceful shutdown on ctrl+c with actor poweroff and sensor disconnect
 - [ ] Add service restart to web interface
 - [ ] Add initial configuration settings options to web interface
 
