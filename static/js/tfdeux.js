@@ -212,6 +212,8 @@ const app = Vue.createApp({
       const actions = {
         reload: this.reloadPage,
         charts: this.openCharts,
+        restart: () => this.sendSystemCommand("restartsvc"),
+        stop: () => this.sendSystemCommand("stopsvc"),
         reboot: () => this.sendSystemCommand("reboot"),
         shutdown: () => this.sendSystemCommand("poweroff"),
       };
@@ -221,8 +223,8 @@ const app = Vue.createApp({
     // Send system admin command (reboot, shutdown)
     sendSystemCommand(command) {
       if (this.systemWs?.readyState === SockJS.OPEN) {
-        //this.systemWs.send(command);
-        this.systemWs.send(JSON.stringify({ admin: command }));
+        const message = JSON.stringify({ admin: command });
+        this.systemWs.send(message);
       } else {
         console.error("System WebSocket is not open.");
       }
@@ -303,6 +305,13 @@ const app = Vue.createApp({
                   </q-item>
                   <q-item style="color: black" clickable v-ripple @click="handleMenuAction('charts')">
                     <q-item-section>Charts</q-item-section>
+                  </q-item>
+                  <q-separator />
+                  <q-item style="color: black" clickable v-ripple @click="handleMenuAction('restart')">
+                    <q-item-section>Restart App</q-item-section>
+                  </q-item>
+                  <q-item style="color: black" clickable v-ripple @click="handleMenuAction('stop')">
+                    <q-item-section>Stop App</q-item-section>
                   </q-item>
                   <q-separator />
                   <q-item style="color: black" clickable v-ripple @click="handleMenuAction('reboot')">

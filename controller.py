@@ -202,51 +202,6 @@ class Controller(interfaces.Component, interfaces.Runnable):
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to decode WebSocket message: session={session}, controller={self.name}, error={e}, raw_data={additional_argument.data}")
 
-# Create a SystemController class extending Controller
-class SystemController(Controller):
-    def __init__(self, name="System"):
-        current_time = datetime.fromtimestamp(time()).strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-        super().__init__(name, sensor=None, actor=None, logic=None)
-        
-        # Register WebSocket route only if not already registered
-        existing_routes = [route for route in app.router.routes()]
-        if not any(route for route in existing_routes if f'/controllers/{self.name}/ws' in str(route.resource)):
-            sockjs.add_endpoint(app, prefix=f'/controllers/{self.name}/ws', name=f'{self.name}-ws', handler=self.websocket_handler)
-        else:
-            current_time = datetime.fromtimestamp(time()).strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-        
-        # Broadcast details on initialization
-        self.broadcastDetails()
-
-    def callback(self, endpoint, data):
-        # Handle specific System commands
-        if endpoint == "admin":
-            if data == "reboot":
-                logger.info("System: Reboot command received.")
-                os.system('sudo shutdown -r')
-                event.notify(event.Event(source=self.name, endpoint='admin', data='rebooting'))
-            elif data == "poweroff":
-                logger.info("System: Poweroff command received.")
-                os.system('sudo shutdown -P')
-                event.notify(event.Event(source=self.name, endpoint='admin', data='powering_off'))
-            else:
-                logger.warning(f"System: Unknown command received: {data}")
-        else:
-            logger.warning(f"System: Unhandled endpoint {endpoint} with data {data}")
-
-    def getDetails(self):
-        # Provide basic details for the System
-        return {
-            'name': self.name,
-            'wsUrl': f'/controllers/{self.name}/ws',
-        }
-
-    def broadcastDetails(self):
-        # Broadcast System details
-        manager = sockjs.get_manager(f'{self.name}-ws', app)
-        details = self.getDetails()
-        manager.broadcast(details)
-
 async def listControllers(request):
     res = request.app.router['controllerDetail']
     controllers = {name: {'url': str(request.url.with_path(str(res.url_for(name=name))))} for name, component in components.items() if isinstance(component, Controller)}

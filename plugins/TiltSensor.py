@@ -137,85 +137,29 @@ class TiltSensor:
     def ograv(self):
         return self.lastOG
 
+    async def shutdown(self):
+        """Cleanup and stop the Bluetooth scan."""
+        logger.info('Shutting down TiltSensor...')
+        try:
+            await self.btctrl.stop_scan_request()
+            command = aiobs.HCI_Cmd_LE_Advertise(enable=False)
+            await self.btctrl.send_command(command)
+        except Exception as e:
+            logger.error(f"Error during shutdown: {e}")
+        finally:
+            if self.conn:
+                self.conn.close()
+            logger.info('TiltSensor shutdown complete.')
+
     async def run(self):
         event_loop = asyncio.get_running_loop()
-        conn, btctrl = await event_loop._create_connection_transport(self.sock, aiobs.BLEScanRequester, None, None)
-        
-        # Process BLE beacon data
-        def process_ble_beacon(data):
-            ev = aiobs.HCI_Event()
-            try:
-                ev.decode(data)
-            except Exception as e:
-                logger.error(f"Failed to decode BLE event: {e}")
-                return False
+        self.conn, self.btctrl = await event_loop._create_connection_transport(
+            self.sock, aiobs.BLEScanRequester, None, None
+        )
 
-            if ev.raw_data is None:
-                return False
-
-            raw_data_hex = ev.raw_data.hex()
-
-            if len(raw_data_hex) < 80 or "1370f02d74de" not in raw_data_hex:
-                return False
-
-            try:
-                manufacturer_data = ev.retrieve("Manufacturer Specific Data")
-                if not manufacturer_data:
-                    return False
-                payload = manufacturer_data[0].payload[1].val.hex()
-
-                uuid = payload[4:36]
-                color = color_lookup(uuid)
-                if color is None or color != self.color:
-                    return False
-
-                temp = int.from_bytes(bytes.fromhex(payload[36:40]), byteorder='big')
-                gravity = int.from_bytes(bytes.fromhex(payload[40:44]), byteorder='big')
-                rssi = ev.retrieve("rssi")[-1].val
-
-                if gravity >= 5000:
-                    self.tilt_pro = True
-                    gravity = Decimal(gravity) / Decimal(10000)
-                    temp = Decimal(temp) / Decimal(10)
-                else:
-                    self.tilt_pro = False
-                    gravity = Decimal(gravity) / Decimal(1000)
-                    temp = Decimal(temp)
-
-                gravity = (gravity + self.gravity_offset).quantize(Decimal('.0001' if self.tilt_pro else '.001'))
-                temp = (temp + self.temp_offset).quantize(Decimal('.1' if self.tilt_pro else '1.'))
-
-                self._add_to_list(gravity, temp)
-                
-                # Get Brix, Gravity, and Attenuation
-                abv = to_abv(gravity, self.start_gravity)
-                atten = to_atten(gravity, self.start_gravity)
-                brix = to_brix(gravity)
-
-                # Store the latest values as Decimal
-                self.lastTemp = temp
-                self.lastGravity = gravity
-                self.lastABV = abv
-                self.lastAtten = atten
-                self.lastOG = self.start_gravity
-
-                # Check if the notify interval has passed before sending notifications
-                current_time = datetime.datetime.now()
-                if (current_time - self.last_sendtime).total_seconds() >= self.sendtime:
-                    notify(Event(source=self.name, endpoint='temperature', data=float(temp)))
-                    notify(Event(source=self.name, endpoint='gravity', data=float(gravity)))
-                    notify(Event(source=self.name, endpoint='brix', data=float(brix)))
-                    notify(Event(source=self.name, endpoint='abv', data=float(abv)))
-                    notify(Event(source=self.name, endpoint='atten', data=float(atten)))
-                    notify(Event(source=self.name, endpoint='ograv', data=float(self.start_gravity)))
-                    self.last_sendtime = current_time
-
-            except Exception as e:
-                logger.error(f"Error processing BLE beacon: {e}")
-                return False
-
-        btctrl.process = process_ble_beacon
-        await btctrl.send_scan_request()
+        # Set the process method to handle BLE beacons
+        self.btctrl.process = self.process_ble_beacon
+        await self.btctrl.send_scan_request()
 
         try:
             while True:
@@ -225,9 +169,78 @@ class TiltSensor:
         except KeyboardInterrupt:
             logger.info('Keyboard interrupt')
         finally:
-            logger.debug('Closing event loop')
-            await btctrl.stop_scan_request()
-            command = aiobs.HCI_Cmd_LE_Advertise(enable=False)
-            await btctrl.send_command(command)
-            conn.close()
+            await self.shutdown()
+
+    def process_ble_beacon(self, data):
+        """Process incoming BLE beacon data."""
+        ev = aiobs.HCI_Event()
+        try:
+            ev.decode(data)
+        except Exception as e:
+            logger.error(f"Failed to decode BLE event: {e}")
+            return False
+
+        if ev.raw_data is None:
+            return False
+
+        raw_data_hex = ev.raw_data.hex()
+
+        if len(raw_data_hex) < 80 or "1370f02d74de" not in raw_data_hex:
+            return False
+
+        try:
+            manufacturer_data = ev.retrieve("Manufacturer Specific Data")
+            if not manufacturer_data:
+                return False
+            payload = manufacturer_data[0].payload[1].val.hex()
+
+            uuid = payload[4:36]
+            color = color_lookup(uuid)
+            if color is None or color != self.color:
+                return False
+
+            temp = int.from_bytes(bytes.fromhex(payload[36:40]), byteorder='big')
+            gravity = int.from_bytes(bytes.fromhex(payload[40:44]), byteorder='big')
+            rssi = ev.retrieve("rssi")[-1].val
+
+            if gravity >= 5000:
+                self.tilt_pro = True
+                gravity = Decimal(gravity) / Decimal(10000)
+                temp = Decimal(temp) / Decimal(10)
+            else:
+                self.tilt_pro = False
+                gravity = Decimal(gravity) / Decimal(1000)
+                temp = Decimal(temp)
+
+            gravity = (gravity + self.gravity_offset).quantize(Decimal('.0001' if self.tilt_pro else '.001'))
+            temp = (temp + self.temp_offset).quantize(Decimal('.1' if self.tilt_pro else '1.'))
+
+            self._add_to_list(gravity, temp)
+
+            # Get Brix, Gravity, and Attenuation
+            abv = to_abv(gravity, self.start_gravity)
+            atten = to_atten(gravity, self.start_gravity)
+            brix = to_brix(gravity)
+
+            # Store the latest values
+            self.lastTemp = temp
+            self.lastGravity = gravity
+            self.lastABV = abv
+            self.lastAtten = atten
+            self.lastOG = self.start_gravity
+
+            # Send notifications if time interval has passed
+            current_time = datetime.datetime.now()
+            if (current_time - self.last_sendtime).total_seconds() >= self.sendtime:
+                notify(Event(source=self.name, endpoint='temperature', data=float(temp)))
+                notify(Event(source=self.name, endpoint='gravity', data=float(gravity)))
+                notify(Event(source=self.name, endpoint='brix', data=float(brix)))
+                notify(Event(source=self.name, endpoint='abv', data=float(abv)))
+                notify(Event(source=self.name, endpoint='atten', data=float(atten)))
+                notify(Event(source=self.name, endpoint='ograv', data=float(self.start_gravity)))
+                self.last_sendtime = current_time
+
+        except Exception as e:
+            logger.error(f"Error processing BLE beacon: {e}")
+            return False
 

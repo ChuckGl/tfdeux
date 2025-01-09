@@ -5,10 +5,14 @@ Scripts
 tcl
 *.pyc
 __pycache__
-*.log
+*.log*
+*.bak*
+*.old*
+*.tmp*
 pip-selfcheck.json
 .envrc
 .venc
 .venv
 config.yaml
+logrotate-state
 

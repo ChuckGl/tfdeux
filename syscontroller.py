@@ -9,11 +9,15 @@ def handle_system_command(endpoint, data, controller_name="System"):
         if data == "reboot":
             logger.info(f"{controller_name}: Reboot command received.")
             os.system('sudo shutdown -r')
-            event.notify(event.Event(source=controller_name, endpoint='admin', data='rebooting'))
+        elif data == "restartsvc":
+            logger.info("System: Restart service command received.")
+            os.system('sudo service tfdeux restart')
+        elif data == "stopsvc":
+            logger.info("System: Stop service command received.")
+            os.system('sudo service tfdeux stop')
         elif data == "poweroff":
             logger.info(f"{controller_name}: Poweroff command received.")
             os.system('sudo shutdown -P')
-            event.notify(event.Event(source=controller_name, endpoint='admin', data='powering_off'))
         else:
             logger.warning(f"{controller_name}: Unknown command received: {data}")
     else:
