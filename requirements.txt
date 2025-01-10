@@ -5,4 +5,4 @@ rpi-lgpio
 ruamel.yaml
 sockjs
 spidev
-
+tinytuya
