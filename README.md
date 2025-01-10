@@ -13,10 +13,6 @@ You can use it to:
 TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson.  TFBrew supports both the brewing and fermentation process.  The original is no longer maintained, but can be made to run on current RPi platforms.  However, some underlying packages are problematic and/or deprecated with Raspberry Pi OS Bookworm.  TFDeux also includes changes made to TFBrew by Michaël Cadilhac.
 
 TFDeux has been migrated to uses:
-
-=======
-TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson.  TFBrew supports both the brewing and fermentation process.  The original is no longer maintained, but can be made to run on current RPi platforms.  However, some underlying packages are problematic and/or deprecated with Raspberry Pi OS Bookworm.  TFDeux has been migrated to uses:
-
 + aioblescan 0.2.14
 + rpi-lgpio 0.6
 + vue 3.5.13
@@ -24,6 +20,8 @@ TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson.  TFBrew su
 + echarts 5.5.1
 + blynk 2.0
 
+=======
+TFDeux is a fork of TFBrew, original written by Hrafnkell Eiríksson.  TFBrew supports both the brewing and fermentation process.  The original is no longer maintained, but can be made to run on current RPi platforms.  However, some underlying packages are problematic and/or deprecated with Raspberry Pi OS Bookworm.  TFDeux has been migrated to uses:
 TFDeux is Copyright from 2024 by Chuck Glover and is licensed by the GNU GPL v3 license.
 See the LICENSE file.
 
