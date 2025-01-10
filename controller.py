@@ -1,6 +1,5 @@
 # filename: controller.py
 
-import json
 import asyncio
 import decimal
 import json
@@ -21,9 +20,10 @@ from common import app, components
 logger = logging.getLogger(__name__)
 
 HISTORY_SIZE = 1440
+HISTORY_FILE_PATH = '/home/pi/tfdeux/history'  # Set a proper path for history files
 
 class Controller(interfaces.Component, interfaces.Runnable):
-    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False):
+    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False, reload_history='no'):
         self.w1sensor = components.get('Onewire')
         self.name = name
         self._enabled = initiallyEnabled
@@ -41,6 +41,11 @@ class Controller(interfaces.Component, interfaces.Runnable):
         self.abv_history = []
         self.atten_history = []
         self.ograv_history = []
+        self.history_file = os.path.join(HISTORY_FILE_PATH, f'{name}_history.json')
+
+        if reload_history.lower() == 'yes':
+            self.load_history()  # Load history on initialization
+        
         sockjs.add_endpoint(app, prefix=f'/controllers/{self.name}/ws', name=f'{self.name}-ws', handler=self.websocket_handler)
         asyncio.ensure_future(self.run())
 
@@ -143,6 +148,57 @@ class Controller(interfaces.Component, interfaces.Runnable):
                 minpos = i
         return minpos
 
+    def save_history(self):
+        """Save current history to a JSON file."""
+        def convert_decimal(value):
+            """Convert Decimal to float, recursively handle lists and dictionaries."""
+            if isinstance(value, decimal.Decimal):
+                return float(value)
+            elif isinstance(value, list):
+                return [convert_decimal(item) for item in value]
+            elif isinstance(value, dict):
+                return {key: convert_decimal(val) for key, val in value.items()}
+            return value
+
+        data = {
+            'timestamp': self.timestamp_history,
+            'power': self.power_history,
+            'temperature': self.temp_history,
+            'setpoint': self.setpoint_history,
+            'w1temperature': self.w1temp_history,
+            'gravity': self.gravity_history,
+            'abv': self.abv_history,
+            'atten': self.atten_history,
+            'ograv': self.ograv_history
+        }
+
+        # Convert Decimal values to float before saving
+        data = convert_decimal(data)
+
+        try:
+            with open(self.history_file, 'w') as file:
+                json.dump(data, file)
+        except Exception as e:
+            logger.error(f"Failed to save history for {self.name}: {e}")
+
+    def load_history(self):
+        """Load history from a JSON file."""
+        try:
+            if os.path.exists(self.history_file):
+                with open(self.history_file, 'r') as file:
+                    data = json.load(file)
+                self.timestamp_history = data.get('timestamp', [])
+                self.power_history = data.get('power', [])
+                self.temp_history = data.get('temperature', [])
+                self.setpoint_history = data.get('setpoint', [])
+                self.w1temp_history = data.get('w1temperature', [])
+                self.gravity_history = data.get('gravity', [])
+                self.abv_history = data.get('abv', [])
+                self.atten_history = data.get('atten', [])
+                self.ograv_history = data.get('ograv', [])
+        except Exception as e:
+            logger.error(f"Failed to load history for {self.name}: {e}")
+
     async def run(self):
         await asyncio.sleep(5)
         while True:
@@ -180,9 +236,9 @@ class Controller(interfaces.Component, interfaces.Runnable):
     
                 # Always broadcast details for all controllers, including System
                 self.broadcastDetails()
+                self.save_history()  # Save history periodically
     
             await asyncio.sleep(10)
-
 
     async def websocket_handler(self, session, msg, additional_argument=None, *args):
         try:
