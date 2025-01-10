@@ -2,7 +2,6 @@
 
 ## High Priority
 - [ ] Graceful shutdown on ctrl+c with actor poweroff and sensor disconnect
-- [ ] Add initial configuration settings options to web interface
 
 ## Medium Priority
 
