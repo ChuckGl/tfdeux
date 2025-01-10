@@ -47,6 +47,14 @@ actors:
       plugin: TPLinkActor       # TPLink actor for heating
       ip: 192.168.111.2         # IP address of the TPLink device controlling heating
 
+  - Warming:
+      plugin: TuyaActor         # Tuya actor for warming
+      device_id: xxxx           # The device_id of the Tuya device
+      ip: 192.168.111.3         # IP address of the Tuya device controlling the warming
+      local_key: xxxx           # The local_key of the Tuya device
+      dps: 2                    # The dps_id of the socket controlling the warming
+      version: 3.3              # The version of the Tuya device. This is normally 3.3
+
 controllers:
   - Fridge:
       plugin: HysteresisLogic   # Logic plugin for control of assigned actor
@@ -58,6 +66,7 @@ controllers:
       sensor: TiltYellow        # The sensor providing temperature data
       initialSetpoint: 55.0     # Initial setpoint temperature in Fahrenheit
       initialState: on          # Initial state of the controller (on/off)
+      reload: yes               # Reload data_history from ~/tfdeux/history
 
   - Heater:
       plugin: HysteresisLogic   # Logic plugin for control of assigned actor
@@ -69,6 +78,7 @@ controllers:
       sensor: TiltYellow        # The sensor providing temperature data
       initialSetpoint: 50.0     # Initial setpoint temperature in Fahrenheit
       initialState: off         # Initial state of the controller (on/off)
+      reload: yes               # Reload data_history from ~/tfdeux/history
 
 extensions:
   - web:
