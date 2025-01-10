@@ -36,6 +36,7 @@ The following components have been tested:
 + TiltSensor - for using the Tilt Hydrometer.
 + W1Sensor - for using a ds18b20 one-wire sensors.
 + TPLinkActor - for controlling a TPLink WiFi socket.
++ TuyaActor - for controlling a Tuya WiFi socket or powerstrip.
 + HysteresisLogic - for on/off temperature control with a hysteresis (e.g. fermentation fridge control).
 + DummyActor - simulating an actor, just prints out the actions.
 + DummySensor - simulating a sensor with a configurable value + noise.
