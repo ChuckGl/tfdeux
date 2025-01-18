@@ -43,10 +43,15 @@ const createChartOptions = (legendData, seriesData, yAxisOptions) => ({
     },
     yAxis: yAxisOptions.map((axis, index) => ({
         ...axis,
-        splitLine: { show: false, },
-        offset: index > 1 ? (index - 1) * 30 : 0, // Start offset after second axis
+        splitLine: { show: false },
+        offset: index > 1 ? (index - 1) * 30 : 0,
     })),
     series: seriesData,
+    dataZoom: [
+        {
+            type: 'inside', // Enables mousewheel and touch zooming
+        },
+    ],
 });
 
 // FermentationPlotComponent for fermentation-specific charts
@@ -60,6 +65,7 @@ const FermentationPlotComponent = defineComponent({
 
         const initializeChart = () => {
             const chartInstance = echarts.init(chartRef.value);
+            chartInstance.group = 'sharedTimeline'; // Assign the chart to a group
             const options = createChartOptions(
                 ['Gravity', 'OG', 'ABV', 'Attenuation'],
                 [
@@ -105,6 +111,7 @@ const TemperaturePlotComponent = defineComponent({
 
         const initializeChart = () => {
             const chartInstance = echarts.init(chartRef.value);
+            chartInstance.group = 'sharedTimeline'; // Assign the chart to a group
             const options = createChartOptions(
                 ['Beer Temp', 'Fridge Temp', 'Cold Setpoint', 'Hot Setpoint', 'Cold Power', 'Hot Power'],
                 [
@@ -123,11 +130,7 @@ const TemperaturePlotComponent = defineComponent({
                         min: 0,
                         max: 100,
                         axisLabel: {
-                            formatter: function (value) {
-                                if (value === 0) return 'Off';
-                                if (value === 100) return 'On';
-                                return '';
-                            },
+                            formatter: value => (value === 0 ? 'Off' : value === 100 ? 'On' : ''),
                         },
                     },
                 ]
@@ -202,7 +205,7 @@ createApp({
                     const fridgeResponse = await fetch(`${data.Fridge.url}/datahistory`);
                     const fridgeResult = await fridgeResponse.json();
                     fridgeData.value = fridgeResult;
-                    originalGravity.value = fridgeResult.ograv?.[0] || null;
+                    originalGravity.value = fridgeResult.ograv?.[fridgeResult.ograv.length - 1] || null;
                 }
 
                 if (data.Heater) {
@@ -233,6 +236,11 @@ createApp({
     },
     mounted() {
         this.fetchDataUrls();
+
+        // Ensure charts are synchronized
+        this.$nextTick(() => {
+            echarts.connect('sharedTimeline'); // Link charts in the same group
+        });
     },
 })
 .use(Quasar)

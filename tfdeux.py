@@ -118,4 +118,3 @@ if isWebUIenabled:
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     web.run_app(app, port=config.get('port', 8080), loop=loop)
-

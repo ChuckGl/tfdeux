@@ -70,7 +70,7 @@ class TiltSensor:
         self.name = name
         self.color = color
         self.temp_offset = Decimal(tempcalbr).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        self.gravity_offset = Decimal(gravcalbr).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+        self.gravity_offset = Decimal(gravcalbr).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
         self.start_gravity = Decimal(startgrav).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
         self.sendtime = sendtime
         self.last_sendtime = datetime.datetime.min
@@ -83,7 +83,7 @@ class TiltSensor:
         self.lastGravity = Decimal(0.0).quantize(Decimal('0.001'))
         self.lastABV = Decimal(0.0).quantize(Decimal('0.01'))
         self.lastAtten = Decimal(0.0).quantize(Decimal('0.1'))
-        self.lastOG = Decimal(0.0).quantize(Decimal('0.0001'))
+        self.lastOG = self.start_gravity
         self.rssi = 0
         self.tilt_pro = False
 
@@ -134,8 +134,20 @@ class TiltSensor:
     def abv(self):
         return self.lastABV
 
-    def ograv(self):
-        return self.lastOG
+    def ograv(self, origGravity=None):
+        if origGravity is not None:
+            self.start_gravity = origGravity
+        return self.start_gravity
+
+    def tcalb(self, tempCalb=None):
+        if tempCalb is not None:
+            self.temp_offset = Decimal(tempCalb).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return self.temp_offset
+
+    def gcalb(self, gravCalb=None):
+        if gravCalb is not None:
+            self.gravity_offset = Decimal(gravCalb).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+        return self.gravity_offset
 
     async def shutdown(self):
         """Cleanup and stop the Bluetooth scan."""
@@ -227,7 +239,7 @@ class TiltSensor:
             self.lastGravity = gravity
             self.lastABV = abv
             self.lastAtten = atten
-            self.lastOG = self.start_gravity
+            #self.lastOG = self.start_gravity
 
             # Send notifications if time interval has passed
             current_time = datetime.datetime.now()

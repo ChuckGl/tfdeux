@@ -10,6 +10,7 @@ import subprocess
 import sys
 from aiohttp import web
 from datetime import datetime
+from ruamel.yaml import YAML
 from time import time
 
 import event
@@ -21,6 +22,33 @@ logger = logging.getLogger(__name__)
 
 HISTORY_SIZE = 1440
 HISTORY_FILE_PATH = '/home/pi/tfdeux/history'  # Set a proper path for history files
+
+
+CONFIG_PATH = '/home/pi/tfdeux/config.yaml'
+
+def update_config_file(sensor_name, key, value):
+    yaml = YAML()
+    try:
+        # Read the existing config file
+        with open(CONFIG_PATH, "r") as file:
+            config = yaml.load(file)
+        
+        # Find the sensor by name and update the key
+        for sensor in config["sensors"]:
+            if sensor_name in sensor:  # Match the sensor name (e.g., TiltYellow)
+                if key in sensor[sensor_name]:  # Check if the key exists under the sensor
+                    sensor[sensor_name][key] = value
+                    break
+        else:
+            raise KeyError(f"Sensor {sensor_name} or key {key} not found in config.yaml")
+        
+        # Write the updated config back
+        with open(CONFIG_PATH, "w") as file:
+            yaml.dump(config, file)
+        
+        logger.info(f"Updated config.yaml: {sensor_name} -> {key} = {value}")
+    except Exception as e:
+        logger.error(f"Failed to update config.yaml: {e}")
 
 class Controller(interfaces.Component, interfaces.Runnable):
     def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False, reload_history='no'):
@@ -56,6 +84,30 @@ class Controller(interfaces.Component, interfaces.Runnable):
     def callback(self, endpoint, data):
         includeSetpoint = True
         if self.name == "System":
+            yaml = YAML()
+            try:
+                with open(CONFIG_PATH, "r") as file:
+                    config = yaml.load(file)
+                for controller_entry in config.get("controllers", []):
+                    for controller_name, conrtroller_details in controller_entry.items():
+                        controller_instance = components.get(controller_name)
+                        if controller_instance and hasattr(controller_instance, "automatic"):
+                            controller_instance.automatic = False
+                            logger.info(f"Set controller {controller_name} to MANUAL mode.")
+                for actor_entry in config.get("actors", []):
+                    for actor_name, actor_details in actor_entry.items():
+                        actor_instance = components.get(actor_name)
+                        if actor_instance and hasattr(actor_instance, "off") and callable(actor_instance.off):
+                            logger.info(f"Turning off actor: {actor_name} {actor_instance}")
+                            actor_instance.off()
+                for sensor_entry in config.get("sensors", []):
+                    for sensor_name, sensor_details in sensor_entry.items():
+                        sensor_instance = components.get(sensor_name)
+                        if sensor_instance and hasattr(sensor_instance, "shutdown") and callable(sensor_instance.shutdown):
+                            logger.info(f"Shutting down sensor: {sensor_name} {sensor_instance}")
+                            asyncio.create_task(sensor_instance.shutdown())
+            except Exception as e:
+                logger.error(f"Failed to process sensors and actors from config.yaml: {e}")
             syscontroller.handle_system_command(endpoint, data, controller_name=self.name)
         elif endpoint in ['state', 'enabled']:
             self.enabled = bool(data)
@@ -72,7 +124,19 @@ class Controller(interfaces.Component, interfaces.Runnable):
             includeSetpoint = True
         elif endpoint == 'power':
             self.actor.updatePower(float(data))
-            logger.debug(f"Setting {self.name} controller power to {float(data)}")
+            logger.info(f"Setting {self.name} controller power to {float(data)}")
+        elif endpoint == 'ograv':
+            logger.info(f"Setting {self.name} Tilt starting gravity to {data}")
+            self.sensor.ograv(float(data))
+            update_config_file(self.sensor.name, "startgrav", float(data))
+        elif endpoint == 'tcalb':
+            logger.info(f"Offsetting {self.name} Tilt temperature by {data}")
+            self.sensor.tcalb(float(data))
+            update_config_file(self.sensor.name, "tempclbr", float(data))
+        elif endpoint == 'gcalb':
+            logger.info(f"Offsetting {self.name} Tilt gravity by {data}")
+            update_config_file(self.sensor.name, "gravclbr", float(data))
+            self.sensor.gcalb(float(data))
         else:
             self.logic.callback(endpoint, data)
 
@@ -123,6 +187,8 @@ class Controller(interfaces.Component, interfaces.Runnable):
                 'abv': self.sensor.abv(),
                 'atten': self.sensor.atten(),
                 'ograv': self.sensor.ograv(),
+                'tcalb': self.sensor.tcalb(),
+                'gcalb': self.sensor.gcalb(),
                 'enabled': self.enabled,
                 'automatic': self.automatic,
                 'power': self.actor.getPower(),

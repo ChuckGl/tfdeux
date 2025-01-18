@@ -10,6 +10,13 @@ const app = Vue.createApp({
       fridgeWs: null,
       heaterWs: null,
       menuOpen: false,
+      tiltDialogVisible: false,
+      tiltSettings: {
+        color: '',
+        tempclbr: '',
+        gravclbr: '',
+        startgrav: '',
+      },
       controllerState: Vue.reactive ({
         temperature: 0,
         w1Temperature: 0,
@@ -101,6 +108,11 @@ const app = Vue.createApp({
         : "-";
     },
   },
+  watch: {
+    'controllerState.originalGravity'(newVal) {
+      this.tiltSettings.startgrav = newVal;
+    }
+  },
   methods: {
     // Initialize Fridge WebSocket
     newWsConnFridge(url) {
@@ -114,6 +126,8 @@ const app = Vue.createApp({
           abv: data.abv,
           atten: data.atten,
           originalGravity: data.ograv,
+          tempCalibration: data.tcalb,
+          gravCalibration: data.gcalb,
           fridgeEnabled: data.enabled,
           fridgeAutomatic: data.automatic,
           fridgePower: data.power,
@@ -199,6 +213,19 @@ const app = Vue.createApp({
         console.error(`${type} WebSocket is not open.`);
       }
     },
+    // Update Tilt settings and send to backend
+    updateTilt(value, type, dataType) {
+      const ws = this.fridgeWs;
+      if (ws?.readyState === SockJS.OPEN) {
+        console.log(`Updating ${type} and dataType ${dataType} with value:`, value);
+        this.controllerState[`${type}`] = value;
+        const payload = { [dataType]: value };
+        console.log("Sending payload to WebSocket:", payload);
+        ws.send(JSON.stringify(payload));
+      } else {
+        console.error(`${type} WebSocket is not open.`);
+      }
+    },
     // Reload page
     reloadPage() {
       window.location.reload();
@@ -216,6 +243,7 @@ const app = Vue.createApp({
         stop: () => this.sendSystemCommand("stopsvc"),
         reboot: () => this.sendSystemCommand("reboot"),
         shutdown: () => this.sendSystemCommand("poweroff"),
+        tilt: () => (this.tiltDialogVisible = true),
       };
       actions[action]?.();
       this.menuOpen = false;
@@ -235,6 +263,14 @@ const app = Vue.createApp({
       this.numpadValue = this.controllerState[field]?.toString() || "0";
       this.numpadVisible = true;
     },
+    // Add a method to toggle positive/negative for numpad value
+    toggleSign() {
+      if (this.numpadValue.startsWith("-")) {
+        this.numpadValue = this.numpadValue.slice(1); // Remove the negative sign
+      } else if (this.numpadValue !== "0") {
+        this.numpadValue = `-${this.numpadValue}`; // Add the negative sign
+      }
+    },
     // Handle numpad submission to input field
     handleNumpadSubmit() {
       const numericValue = parseFloat(this.numpadValue);
@@ -243,12 +279,26 @@ const app = Vue.createApp({
         this.updateSetpoint(numericValue, "Fridge");
       } else if (this.numpadInputField === "heaterSetpoint") {
         this.updateSetpoint(numericValue, "Heater");
+      } else if (this.numpadInputField === "originalGravity") {
+        this.updateTilt(numericValue, "originalGravity", "ograv");
+      } else if (this.numpadInputField === "tempCalibration") {
+        this.updateTilt(numericValue, "tempCalibration", "tcalb");
+      } else if (this.numpadInputField === "gravCalibration") {
+        this.updateTilt(numericValue, "gravCalibration", "gcalb");
       }
       this.numpadVisible = false;
+    },
+    closeTiltDialog() {
+      this.tiltDialogVisible = false;
+    },
+    saveTiltSettings() {
+      console.log("Tilt settings saved:", this.tiltSettings);
+      this.closeTiltDialog();
     },
   },
   mounted() {
     // Establish connections to controllers and fetch details
+    this.tiltSettings.startgrav = this.controllerState.originalGravity;
     fetch("/controllers")
       .then((response) => response.json())
       .then((data) => {
@@ -320,6 +370,10 @@ const app = Vue.createApp({
                   <q-item style="color: black" clickable v-ripple @click="handleMenuAction('shutdown')">
                     <q-item-section>Shutdown</q-item-section>
                   </q-item>
+i                 <q-separator />
+                  <q-item style="color: black" clickable v-ripple @click="handleMenuAction('tilt')">
+                    <q-item-section>Tilt</q-item-section>
+                  </q-item>
                 </q-list>
               </q-btn-dropdown>
         
@@ -387,6 +441,24 @@ const app = Vue.createApp({
             </div>
           </q-page-container>
 
+      <!-- Tilt Settings Dialog -->
+      <q-dialog v-model="tiltDialogVisible" persistent>
+          <q-card style="min-width: 400px;">
+          <q-card-section>
+              <div class="text-h6">Tilt Settings</div>
+          </q-card-section>
+          <q-card-section>
+              <q-input v-model="controllerState.tempCalibration" label="Calibrate Temp" outlined @click="showNumpadForField('tempCalibration')"/>
+              <q-input v-model="controllerState.gravCalibration" label="Calibrate Grav" outlined @click="showNumpadForField('gravCalibration')"/>
+              <q-input v-model="controllerState.originalGravity" label="Original Grav" outlined @click="showNumpadForField('originalGravity')"/>
+          </q-card-section>
+          <q-card-actions align="right">
+              <q-btn flat label="Cancel" color="negative" @click="closeTiltDialog" />
+              <q-btn flat label="OK" color="primary" @click="saveTiltSettings" />
+          </q-card-actions>
+          </q-card>
+      </q-dialog>
+
       <!-- Numpad Dialog -->
       <q-dialog v-model="numpadVisible" persistent>
         <q-card style="min-width: 300px;">
@@ -410,9 +482,12 @@ const app = Vue.createApp({
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '9'">9</q-btn>
             </div>
             <div class="numpad-row">
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue = ''">Clear</q-btn>
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '0'">0</q-btn>
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue.includes('.') ? '' : numpadValue += '.'">.</q-btn>
+              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="toggleSign">+/-</q-btn>
+            </div>
+            <div class="numpad-row">
+              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue = ''">Clear</q-btn>
             </div>
           </q-card-section>
           <q-card-actions align="center">
