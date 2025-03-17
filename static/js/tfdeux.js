@@ -357,6 +357,10 @@ const app = Vue.createApp({
                     <q-item-section>Charts</q-item-section>
                   </q-item>
                   <q-separator />
+                  <q-item style="color: black" clickable v-ripple @click="handleMenuAction('tilt')">
+                    <q-item-section>Tilt</q-item-section>
+                  </q-item>
+                  <q-separator />
                   <q-item style="color: black" clickable v-ripple @click="handleMenuAction('restart')">
                     <q-item-section>Restart App</q-item-section>
                   </q-item>
@@ -369,10 +373,6 @@ const app = Vue.createApp({
                   </q-item>
                   <q-item style="color: black" clickable v-ripple @click="handleMenuAction('shutdown')">
                     <q-item-section>Shutdown</q-item-section>
-                  </q-item>
-i                 <q-separator />
-                  <q-item style="color: black" clickable v-ripple @click="handleMenuAction('tilt')">
-                    <q-item-section>Tilt</q-item-section>
                   </q-item>
                 </q-list>
               </q-btn-dropdown>
@@ -469,17 +469,20 @@ i                 <q-separator />
             <div class="numpad-row">
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '1'">1</q-btn>
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '2'">2</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '3'">3</q-btn>
+              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '3'">3</q-btn>
+              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue = ''">Clear</q-btn>
             </div>
             <div class="numpad-row">
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '4'">4</q-btn>
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '5'">5</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '6'">6</q-btn>
+              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '6'">6</q-btn>
+              <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="numpadValue = numpadValue.slice(0, -1)" label="Backspace"></q-btn>
             </div>
             <div class="numpad-row">
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '7'">7</q-btn>
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '8'">8</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '9'">9</q-btn>
+              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '9'">9</q-btn>
+              <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="handleNumpadSubmit" label="Enter"></q-btn>
             </div>
             <div class="numpad-row">
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '0'">0</q-btn>
@@ -487,12 +490,9 @@ i                 <q-separator />
               <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="toggleSign">+/-</q-btn>
             </div>
             <div class="numpad-row">
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue = ''">Clear</q-btn>
             </div>
           </q-card-section>
           <q-card-actions align="center">
-            <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="numpadValue = numpadValue.slice(0, -1)" label="Backspace"></q-btn>
-            <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="handleNumpadSubmit" label="Enter"></q-btn>
           </q-card-actions>
         </q-card>
       </q-dialog>
