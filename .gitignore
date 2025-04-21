@@ -15,4 +15,4 @@ pip-selfcheck.json
 .venv
 config.yaml
 logrotate-state
-
+history/*.json
