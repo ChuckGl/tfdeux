@@ -10,13 +10,13 @@ enableWebUI: True
 
 sensors:
   - Onewire:
-      plugin: W1Sensor
+      plugin: W1Sensor          # 1 Wire temp sensor for receiving data from a 1 wire
       id: 28-3ce1e380c8b2       # Unique ID for the 1-Wire sensor
       pollInterval: 30          # How often (in seconds) to poll the sensor
       sendtime: 10              # Time (in seconds) between sending data updates
 
   - TiltYellow:
-      plugin: TiltSensor
+      plugin: TiltSensor        # Tilt sensor for receiving data from a tilt
       color: Yellow             # Color of the Tilt sensor
       tempclbr: 0               # Temperature calibration offset
       gravclbr: 0               # Gravity calibration offset
@@ -24,18 +24,18 @@ sensors:
       sendtime: 10              # Time (in seconds) between sending data updates
       
   - FakeTilt:
-      plugin: DummySensor 
+      plugin: DummySensor       # Dummy sensor for testing 
       type: tilt                # Simulates a Tilt sensor with both temperature and gravity
       fakeTemp: 60              # Fake temperature reading for the simulated Tilt sensor
       fakeGravity: 1.065        # Fake gravity reading for the simulated Tilt sensor
 
   - FakeTemp:
-      plugin: DummySensor
+      plugin: DummySensor       # Dummy sensor for testing
       type: thermo              # Simulates a thermometer sensor that provides only temperature
       fakeTemp: 50              # Fake temperature reading for the simulated thermometer
 
   - FakeHydro:
-      plugin: DummySensor
+      plugin: DummySensor       # Dummy sensor for testing
       type: hydro               # Simulates a hydrometer that provides only gravity
       fakeGravity: 1.055        # Fake gravity reading for the simulated hydrometer
 
@@ -44,11 +44,17 @@ actors:
       plugin: DummyActor        # A dummy actor for cooling; replace with actual actor if needed
 
   - Heating:
-      plugin: TPLinkActor       # TPLink actor for heating
+      plugin: TPLinkActor       # TPLink actor for controlling sockets
       ip: 192.168.111.2         # IP address of the TPLink device controlling heating
 
   - Warming:
-      plugin: TuyaActor         # Tuya actor for warming
+      plugin: GembirdActor      # Gembird actor for controlling sockets
+      outlet: 2                 # The socket you want to control
+      device_index: 0           # The Gembird device id
+      poll_interval: 30         # How often to poll the device in seconds
+
+  - Freezing:
+      plugin: TuyaActor         # Tuya actor for controlling sockets
       device_id: xxxx           # The device_id of the Tuya device
       ip: 192.168.111.3         # IP address of the Tuya device controlling the warming
       local_key: xxxx           # The local_key of the Tuya device
