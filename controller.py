@@ -17,6 +17,8 @@ import event
 import interfaces
 import syscontroller
 from common import app, components
+#from plugins.DualLoopLogic import DualLoopLogic
+
 
 logger = logging.getLogger(__name__)
 
@@ -270,10 +272,17 @@ class Controller(interfaces.Component, interfaces.Runnable):
         while True:
             # Skip actor and sensor logic if the controller is System
             if self.name != "System":
-                output = self.actor.getPower()
+                output = 0.0
                 if self.enabled:
                     if self._autoMode:
-                        output = self.logic.calc(self.sensor.temp(), self.targetTemp)
+                        if self.logic.__class__.__name__ == "DualLoopLogic":
+                            inputs = {
+                                'Tilt': self.sensor.temp(),
+                                'Onewire': self.w1sensor.temp()
+                            }
+                            output = self.logic.calc(inputs, self.targetTemp)
+                        else:
+                            output = self.logic.calc(self.sensor.temp(), self.targetTemp)
                     self.actor.updatePower(output)
     
                 # Update histories for controllers with actors
@@ -367,4 +376,5 @@ async def dataHistory(request):
 app.router.add_get('/controllers', listControllers)
 app.router.add_get('/controllers/{name}', controllerDetail, name='controllerDetail')
 app.router.add_get('/controllers/{name}/datahistory', dataHistory, name='dataHistory')
+
 
