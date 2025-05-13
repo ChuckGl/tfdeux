@@ -115,6 +115,14 @@ class DummySensor(Sensor):
                 notify(Event(source=self.name, endpoint='ograv', data=self.ograv()))
                 notify(Event(source=self.name, endpoint='brix', data=self.brix()))
 
+            # Advance trace index if using file mode
+            if self.mode == 'file' and (self.tempTrace or self.gravityTrace):
+                self.traceIndex += 1
+                if self.loopTrace:
+                    max_len = max(len(self.tempTrace), len(self.gravityTrace))
+                    if self.traceIndex >= max_len:
+                        self.traceIndex = 0
+
             await asyncio.sleep(self.sendtime)
 
     async def readTemp(self):
@@ -144,11 +152,6 @@ class DummySensor(Sensor):
                 value = self.gravityTrace[self.traceIndex]
             else:
                 value = self.gravityTrace[-1] if self.loopTrace else self.fakeGravity
-
-            self.traceIndex += 1
-            if self.loopTrace and self.traceIndex >= len(self.gravityTrace):
-                self.traceIndex = 0
-
             return round(value, 4)
         return self.fakeGravity
 

@@ -59,9 +59,9 @@ class DualLoopLogic:
                     elif airTemp > target + self.hysteresis:
                         self.lastOutput = 0.0
             if target is not None:
-                logger.debug(f"DualLoopLogic: beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
+                logger.warning(f"DualLoopLogic: beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
             else:
-                logger.debug(f"DualLoopLogic: beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
+                logger.warning(f"DualLoopLogic: beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
                 
             return self.lastOutput
     
