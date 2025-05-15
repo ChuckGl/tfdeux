@@ -2,10 +2,13 @@
 
 import asyncio
 import os
+import logging
 from random import normalvariate
 from decimal import Decimal
 from event import notify, Event
 from interfaces import Sensor
+
+logger = logging.getLogger(__name__)
 
 def factory(name, settings):
     return DummySensor(name, settings)
@@ -16,7 +19,7 @@ class DummySensor(Sensor):
         self.sensor_type = settings.get('type', 'thermo')
         self.mode = settings.get('mode', 'fixed')
         self.sendtime = int(settings.get('sendtime', 10))
-        self.loopTrace = settings.get('loopTrace', False)
+        self.loopTrace = str(settings.get('loopTrace', False)).lower() == 'true'
 
         self.fakeTemp = float(settings.get('fakeTemp', 68.0))
         self.fakeGravity = float(settings.get('fakeGravity', 1.024))
@@ -29,7 +32,8 @@ class DummySensor(Sensor):
 
         self.tempTrace = []
         self.gravityTrace = []
-        self.traceIndex = 0
+        self.tempIndex = 0
+        self.gravityIndex = 0
 
         self.lastTemp = self.fakeTemp
         self.lastGravity = self.fakeGravity
@@ -103,6 +107,7 @@ class DummySensor(Sensor):
                     self.gravityTrace = [float(line.strip()) for line in f if line.strip()]
 
         while True:
+            logger.debug(f"[{self.name}] TempIndex: {self.tempIndex}, GravityIndex: {self.gravityIndex}")
             if self.sensor_type in ['thermo', 'tilt']:
                 self.lastTemp = await self.readTemp()
                 notify(Event(source=self.name, endpoint='temperature', data=self.lastTemp))
@@ -115,43 +120,47 @@ class DummySensor(Sensor):
                 notify(Event(source=self.name, endpoint='ograv', data=self.ograv()))
                 notify(Event(source=self.name, endpoint='brix', data=self.brix()))
 
-            # Advance trace index if using file mode
-            if self.mode == 'file' and (self.tempTrace or self.gravityTrace):
-                self.traceIndex += 1
-                if self.loopTrace:
-                    max_len = max(len(self.tempTrace), len(self.gravityTrace))
-                    if self.traceIndex >= max_len:
-                        self.traceIndex = 0
-
             await asyncio.sleep(self.sendtime)
 
     async def readTemp(self):
         await asyncio.sleep(0.1)
-
         if self.mode == 'fixed':
             return self.fakeTemp
         elif self.mode == 'random':
             return round(normalvariate(self.fakeTemp, 2.5), 1)
         elif self.mode == 'file' and self.tempTrace:
-            if self.traceIndex < len(self.tempTrace):
-                value = self.tempTrace[self.traceIndex]
+            if self.tempIndex < len(self.tempTrace):
+                value = self.tempTrace[self.tempIndex]
             else:
                 value = self.tempTrace[-1] if self.loopTrace else self.fakeTemp
+
+            # Advance index
+            self.tempIndex += 1
+            if self.loopTrace and self.tempIndex >= len(self.tempTrace):
+                self.tempIndex = 0
+                logging.warning(f"[{self.name}] Temp trace looped to beginning.")
+
             return round(value, 3)
         return self.fakeTemp
 
     async def readGravity(self):
         await asyncio.sleep(0.1)
-
         if self.mode == 'fixed':
             return self.fakeGravity
         elif self.mode == 'random':
             return round(normalvariate(self.fakeGravity, 0.002), 4)
         elif self.mode == 'file' and self.gravityTrace:
-            if self.traceIndex < len(self.gravityTrace):
-                value = self.gravityTrace[self.traceIndex]
+            if self.gravityIndex < len(self.gravityTrace):
+                value = self.gravityTrace[self.gravityIndex]
             else:
                 value = self.gravityTrace[-1] if self.loopTrace else self.fakeGravity
+
+            # Advance index
+            self.gravityIndex += 1
+            if self.loopTrace and self.gravityIndex >= len(self.gravityTrace):
+                self.gravityIndex = 0
+                logging.warning(f"[{self.name}] Gravity trace looped to beginning.")
+
             return round(value, 4)
         return self.fakeGravity
 
