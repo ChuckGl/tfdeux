@@ -10,6 +10,7 @@ def factory(name, settings):
 
 class DualLoopLogic:
     def __init__(self, name, settings):
+        self.name = name
         self.outerSensor = settings.get("outerSensor")  # Typically Tilt
         self.innerSensor = settings.get("innerSensor")  # Typically Onewire
         self.innerMinTemp = float(settings.get("innerMinTemp", 28.0))
@@ -59,9 +60,9 @@ class DualLoopLogic:
                     elif airTemp > target + self.hysteresis:
                         self.lastOutput = 0.0
             if target is not None:
-                logger.warning(f"DualLoopLogic: beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
+                logger.warning(f"DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
             else:
-                logger.warning(f"DualLoopLogic: beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
+                logger.warning(f"DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
                 
             return self.lastOutput
     
