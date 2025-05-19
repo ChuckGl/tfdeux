@@ -87,6 +87,7 @@ class DummySensor(Sensor):
             self.gravity_offset = float(gravCalb)
         return self.gravity_offset
 
+
     def callback(self, endpoint, data):
         if endpoint == 'temperature' and self.sensor_type in ['thermo', 'tilt']:
             self.fakeTemp = float(data)
@@ -96,15 +97,20 @@ class DummySensor(Sensor):
             super().callback(endpoint, data)
 
     async def run(self):
+        def safe_float(val):
+            try:
+                return float(val.strip())
+            except ValueError:
+                return None
         # Load trace files at startup
         if self.mode == 'file' and self.traceFile:
             if os.path.exists(self.traceFile):
                 with open(self.traceFile) as f:
-                    self.tempTrace = [float(line.strip()) for line in f if line.strip()]
+                    self.tempTrace = [safe_float(line) for line in f if line.strip()]
         if self.mode == 'file' and self.gravityFile:
             if os.path.exists(self.gravityFile):
                 with open(self.gravityFile) as f:
-                    self.gravityTrace = [float(line.strip()) for line in f if line.strip()]
+                    self.gravityTrace = [safe_float(line) for line in f if line.strip()]
 
         while True:
             logger.debug(f"[{self.name}] TempIndex: {self.tempIndex}, GravityIndex: {self.gravityIndex}")
@@ -140,6 +146,8 @@ class DummySensor(Sensor):
                 self.tempIndex = 0
                 logging.warning(f"[{self.name}] Temp trace looped to beginning.")
 
+            if value is None:
+                return None
             return round(value, 3)
         return self.fakeTemp
 
@@ -161,6 +169,8 @@ class DummySensor(Sensor):
                 self.gravityIndex = 0
                 logging.warning(f"[{self.name}] Gravity trace looped to beginning.")
 
+            if value is None:
+                return None
             return round(value, 4)
         return self.fakeGravity
 

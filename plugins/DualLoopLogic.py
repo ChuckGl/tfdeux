@@ -2,6 +2,8 @@
 
 import math
 import logging
+from datetime import datetime
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +27,15 @@ class DualLoopLogic:
     def calc(self, inputs, setpoint):
         target = None
         try:
-            beerTemp = float(inputs.get(self.outerSensor))
-            airTemp = float(inputs.get(self.innerSensor))
+            beerRaw = inputs.get(self.outerSensor)
+            airRaw = inputs.get(self.innerSensor)
+            
+            if beerRaw is None or airRaw is None:
+                logger.warning("Missing input for beerTemp or airTemp.")
+                return self.lastOutput
+            
+            beerTemp = float(beerRaw)
+            airTemp = float(airRaw)
     
             if beerTemp is None or airTemp is None:
                 logger.warning("Missing input for beerTemp or airTemp.")
@@ -60,10 +69,9 @@ class DualLoopLogic:
                     elif airTemp > target + self.hysteresis:
                         self.lastOutput = 0.0
             if target is not None:
-                logger.warning(f"DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
+                logger.warning(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}: DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
             else:
-                logger.warning(f"DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
-                
+                logger.warning(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}: DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
             return self.lastOutput
     
         except Exception as e:

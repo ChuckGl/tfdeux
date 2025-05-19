@@ -53,11 +53,11 @@ def update_config_file(sensor_name, key, value):
         logger.error(f"Failed to update config.yaml: {e}")
 
 class Controller(interfaces.Component, interfaces.Runnable):
-    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False, reload_history='no'):
+    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False, initiallyAutomatic=False, reload_history='no'):
         self.w1sensor = components.get('Onewire')
         self.name = name
         self._enabled = initiallyEnabled
-        self._autoMode = True
+        self._autoMode = initiallyAutomatic
         self.sensor = sensor
         self.actor = actor
         self.targetTemp = targetTemp
