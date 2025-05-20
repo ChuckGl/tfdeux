@@ -2,6 +2,7 @@
 
 import math
 import logging
+import time
 from datetime import datetime
 
 
@@ -23,6 +24,8 @@ class DualLoopLogic:
         self.keepCold = settings.get("keepCold", False)
         self.keepHot = settings.get("keepHot", False)
         self.lastOutput = 0.0
+        self.coolingLastChanged = None
+        self.coolingMinCycleSecs = 300
 
     def calc(self, inputs, setpoint):
         target = None
@@ -37,30 +40,51 @@ class DualLoopLogic:
             beerTemp = float(beerRaw)
             airTemp = float(airRaw)
     
-            if beerTemp is None or airTemp is None:
-                logger.warning("Missing input for beerTemp or airTemp.")
-                return self.lastOutput
-    
             error = beerTemp - setpoint  # positive = too hot, negative = too cold
             scale = self.baseScale + abs(error) * self.gain
             adjust = abs(error) ** 1.5 * scale
     
+            now = time.time()  # Current time for cooldown tracking
+    
             if self.keepCold:
-                # Cooling: want air colder if beer is too hot
+                # Cooling logic
                 if beerTemp < setpoint:
-                    # Beer already cooler than setpoint → don't cooler
-                    self.lastOutput = 0.0
+                    desiredOutput = 0.0
                 else:
                     target = self._clamp(setpoint - adjust, self.innerMinTemp, self.innerMaxTemp)
                     if airTemp > target + self.hysteresis:
-                        self.lastOutput = 100.0
+                        desiredOutput = 100.0
                     elif airTemp < target - self.hysteresis:
-                        self.lastOutput = 0.0
+                        desiredOutput = 0.0
+                    else:
+                        desiredOutput = self.lastOutput  # No change
+    
+                if desiredOutput != self.lastOutput:
+                    # Change requested — apply cooldown filter
+                    if self.coolingLastChanged is None or (now - self.coolingLastChanged) >= self.coolingMinCycleSecs:
+                        self.lastOutput = desiredOutput
+                        self.coolingLastChanged = now
+                        logger.warning(f"Cooling state changed to {self.lastOutput} at {datetime.now().strftime('%H:%M:%S')}")
+                    else:
+                        time_since = now - self.coolingLastChanged
+                        time_remaining = max(0, self.coolingMinCycleSecs - time_since)
+                        
+                        def fmt(seconds):
+                            mins = int(seconds // 60)
+                            secs = int(seconds % 60)
+                            return f"{mins}m {secs}s"
+                        
+                        logger.warning(
+                            f"Cooling change BLOCKED (min cycle delay): "
+                            f"last={self.lastOutput}, desired={desiredOutput}, "
+                            f"time since change={fmt(time_since)}, time to release={fmt(time_remaining)}"
+                        )
+                        # Keep previous output (do not apply change)
+                # else: desired == current → no action needed
     
             elif self.keepHot:
-                # Heating: want air warmer if beer is too cold
+                # Heating logic (no cooldown needed)
                 if beerTemp > setpoint:
-                    # Beer already hotter than setpoint → don't heat
                     self.lastOutput = 0.0
                 else:
                     target = self._clamp(setpoint + adjust, self.innerMinTemp, self.innerMaxTemp)
@@ -68,6 +92,9 @@ class DualLoopLogic:
                         self.lastOutput = 100.0
                     elif airTemp > target + self.hysteresis:
                         self.lastOutput = 0.0
+                    # Else: keep current output
+    
+            # Log the decision
             if target is not None:
                 logger.warning(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}: DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
             else:
