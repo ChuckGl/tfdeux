@@ -18,6 +18,15 @@ def restart_service():
     logger.warning("System: Restarting tfdeux service")
     os.system("sudo systemctl restart tfdeux.service")
 
+def new_brew():
+    logger.warning("System: ****** Starting New Brew ******")
+    logger.warning("System: ****** New Brew Stopping tfdeux service ******")
+    os.system("sudo systemctl stop tfdeux.service")
+    logger.warning("System: ****** New Brew Resetting/Saving History ******")
+    os.system("""sudo bash -c 'for f in /home/pi/tfdeux/history/*.json; do mv "$f" "${f%.json}.bak"; done'""")
+    logger.warning("System: ****** New Brew Restarting tfdeux service ******")
+    os.system("sudo systemctl restart tfdeux.service")
+
 def stop_service():
     logger.warning("System: Stopping tfdeux service")
     os.system("sudo systemctl stop tfdeux.service")
@@ -45,6 +54,9 @@ def handle_system_command(endpoint, data, controller_name="System"):
         if data == "reboot":
             logger.info(f"{controller_name}: Reboot command received.")
             reboot()
+        elif data == "newbrew":
+            logger.info(f"{controller_name}: New Brew command received.")
+            new_brew()
         elif data == "restartsvc":
             logger.info(f"{controller_name}: Restart service command received.")
             restart_service()

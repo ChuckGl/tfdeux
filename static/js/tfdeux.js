@@ -288,6 +288,12 @@ const app = Vue.createApp({
       }
       this.numpadVisible = false;
     },
+    startNewBrew() {
+      console.log("Tilt settings saved:", this.tiltSettings);
+      this.closeTiltDialog();
+      console.log("Starting New Brew");
+      this.sendSystemCommand("newbrew");
+    },
     closeTiltDialog() {
       this.tiltDialogVisible = false;
     },
@@ -452,9 +458,12 @@ const app = Vue.createApp({
               <q-input v-model="controllerState.gravCalibration" label="Calibrate Grav" outlined @click="showNumpadForField('gravCalibration')"/>
               <q-input v-model="controllerState.originalGravity" label="Original Grav" outlined @click="showNumpadForField('originalGravity')"/>
           </q-card-section>
-          <q-card-actions align="right">
-              <q-btn flat label="Cancel" color="negative" @click="closeTiltDialog" />
-              <q-btn flat label="OK" color="primary" @click="saveTiltSettings" />
+          <q-card-actions class="q-pa-md row items-center justify-between full-width">
+              <q-btn flat label="New Brew" color="primary" @click="startNewBrew" />
+              <div class="row q-gutter-sm">
+                <q-btn flat label="Cancel" color="negative" @click="closeTiltDialog" />
+                <q-btn flat label="OK" color="primary" @click="saveTiltSettings" />
+              </div>
           </q-card-actions>
           </q-card>
       </q-dialog>
