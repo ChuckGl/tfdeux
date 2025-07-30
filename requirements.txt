@@ -6,3 +6,6 @@ ruamel.yaml
 sockjs
 spidev
 tinytuya
+pyusb
+git+https://github.com/xypron/pysispm.git
+
