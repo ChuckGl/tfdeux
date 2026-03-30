@@ -82,7 +82,7 @@ for ctrl in config['controllers']:
         initiallyEnabled = True if attribs.get('initialState', 'on') == 'on' else False
         initiallyAutomatic = attribs.get('automatic', True) is True
         reloadHistory = attribs.get('reload', 'no')
-        components[name] = controller.Controller(name, sensor, actor, logic, initialSetpoint, initiallyEnabled, initiallyAutomatic, reloadHistory)
+        components[name] = controller.Controller(name, sensor, actor, logic, initialSetpoint, initiallyEnabled, initiallyAutomatic, reloadHistory, attribs.get('powerGuard', None))
 
 # Add the System controller
 logger.info("Setting up controller: System")
