@@ -53,7 +53,7 @@ def update_config_file(sensor_name, key, value):
         logger.error(f"Failed to update config.yaml: {e}")
 
 class Controller(interfaces.Component, interfaces.Runnable):
-    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False, initiallyAutomatic=False, reload_history='no'):
+    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False, initiallyAutomatic=False, reload_history='no', power_guard=None):
         self.w1sensor = components.get('Onewire')
         self.name = name
         self._enabled = initiallyEnabled
@@ -72,6 +72,20 @@ class Controller(interfaces.Component, interfaces.Runnable):
         self.atten_history = []
         self.ograv_history = []
         self.history_file = os.path.join(HISTORY_FILE_PATH, f'{name}_history.json')
+
+        # Power guard settings (compressor protection / long-run rest)
+        self.power_guard = power_guard or {}
+        now = time()
+        min_off_seed = float(self.power_guard.get('minOffSec', 300))
+        self._guard_state = {
+            'current_on': False,
+            'last_change': now - min_off_seed,
+            'on_start': None,
+            'rest_until': 0.0,
+            'last_applied_power': None,
+            'last_reason': None,
+        }
+
 
         if reload_history.lower() == 'yes':
             self.load_history()  # Load history on initialization
@@ -113,11 +127,11 @@ class Controller(interfaces.Component, interfaces.Runnable):
             syscontroller.handle_system_command(endpoint, data, controller_name=self.name)
         elif endpoint in ['state', 'enabled']:
             self.enabled = bool(data)
-            self.actor.updatePower(0.0)
+            self._set_power_guarded(0.0, source='callback', force=True)
             state_text = "ENABLED" if bool(data) else "DISABLED"
             logger.info(f"Setting controller {self.name} to {state_text}")
         elif endpoint == 'automatic':
-            self.actor.updatePower(0.0)
+            self._set_power_guarded(0.0, source='callback', force=True)
             self.automatic = bool(data)
             mode_text = "AUTOMATIC" if self._autoMode else "MANUAL"
             logger.info(f"Setting controller {self.name} to {mode_text}")
@@ -125,8 +139,8 @@ class Controller(interfaces.Component, interfaces.Runnable):
             self.setSetpoint(float(data))
             includeSetpoint = True
         elif endpoint == 'power':
-            self.actor.updatePower(float(data))
-            logger.info(f"Setting {self.name} controller power to {float(data)}")
+            applied = self._set_power_guarded(float(data), source='manual')
+            logger.info(f"Setting {self.name} controller power to {float(data)} (applied {applied})")
         elif endpoint == 'ograv':
             logger.info(f"Setting {self.name} Tilt starting gravity to {data}")
             self.sensor.ograv(float(data))
@@ -162,7 +176,7 @@ class Controller(interfaces.Component, interfaces.Runnable):
     def enabled(self, state):
         self._enabled = state
         if not self._enabled:
-            self.actor.updatePower(0.0)
+            self._set_power_guarded(0.0, source='callback', force=True)
         event.notify(event.Event(source=self.name, endpoint='enabled', data=self.enabled))
 
     @property
@@ -267,6 +281,124 @@ class Controller(interfaces.Component, interfaces.Runnable):
         except Exception as e:
             logger.error(f"Failed to load history for {self.name}: {e}")
 
+
+    # Apply compressor-safe timing and optional long-run rest.
+    # This does NOT change the control logic output; it only gates what we actually apply to the actor.
+    def _apply_power_guard(self, requested_power, current_temp=None):
+        guard = self.power_guard or {}
+
+        # Defaults: safe for compressor-based cooling. (Units: seconds, and temp units match your sensors/setpoints.)
+        min_on = float(guard.get('minOnSec', 180))          # 3 min
+        min_off = float(guard.get('minOffSec', 300))        # 5 min
+        max_on = guard.get('maxOnSec', None)                # e.g. 7200 for 2 hours; None disables long-run rest
+        rest_off = float(guard.get('restOffSec', 900))      # 15 min
+        rest_skip_delta = guard.get('restSkipDelta', None)  # e.g. 2.0 means skip rest if temp > setpoint+2
+
+        now = time()
+        requested_on = float(requested_power) >= 50.0
+
+        st = self._guard_state
+        current_on = bool(st.get('current_on', False))
+        last_change = float(st.get('last_change', now))
+        on_start = st.get('on_start', None)
+        rest_until = float(st.get('rest_until', 0.0))
+
+        # Helper: should we override an active rest because we're too warm?
+        def rest_override_allowed():
+            if rest_skip_delta is None:
+                return False
+            try:
+                if current_temp is None:
+                    return False
+                return float(current_temp) > (float(self.targetTemp) + float(rest_skip_delta))
+            except Exception:
+                return False
+
+        # If we're currently in a forced rest window, keep power OFF unless override kicks in.
+        if rest_until > now:
+            if requested_on and rest_override_allowed():
+                st['rest_until'] = 0.0
+                rest_until = 0.0
+                reason = f"REST override (temp {current_temp} > setpoint {self.targetTemp} + {rest_skip_delta})"
+            else:
+                return 0.0, f"REST active until {rest_until:.0f}"
+
+        # Enforce min ON/OFF times on state transitions.
+        if requested_on != current_on:
+            if requested_on:
+                off_time = now - last_change
+                if off_time < min_off:
+                    return 0.0, f"MinOff block ({off_time:.0f}s < {min_off:.0f}s)"
+                current_on = True
+                st['current_on'] = True
+                st['last_change'] = now
+                st['on_start'] = now
+                return 100.0, "Turn ON"
+            else:
+                # Turning OFF
+                if on_start is None:
+                    on_start = last_change
+                on_time = now - float(on_start)
+                if on_time < min_on:
+                    return 100.0, f"MinOn block ({on_time:.0f}s < {min_on:.0f}s)"
+                current_on = False
+                st['current_on'] = False
+                st['last_change'] = now
+                st['on_start'] = None
+                return 0.0, "Turn OFF"
+
+        # If we're staying ON, check for long-run rest trigger.
+        if current_on and requested_on and max_on is not None:
+            try:
+                max_on = float(max_on)
+                if on_start is None:
+                    on_start = last_change
+                    st['on_start'] = on_start
+                on_time = now - float(on_start)
+                if on_time >= max_on:
+                    # Start a forced rest window.
+                    st['rest_until'] = now + rest_off
+                    st['current_on'] = False
+                    st['last_change'] = now
+                    st['on_start'] = None
+                    return 0.0, f"MaxOn rest ({on_time:.0f}s >= {max_on:.0f}s). Resting {rest_off:.0f}s"
+            except Exception:
+                pass
+
+        # No guard action needed; pass through requested state
+        return 100.0 if current_on else 0.0, "Hold"
+
+    def _set_power_guarded(self, requested_power, source="auto", force=False, current_temp=None):
+        # Force bypasses min-on/min-off/rest. Use sparingly (e.g., emergency stop / disable).
+        if force or not (self.power_guard or {}):
+            applied = float(requested_power)
+            reason = "FORCE" if force else "No guard"
+        else:
+            applied, reason = self._apply_power_guard(requested_power, current_temp=current_temp)
+
+        st = self._guard_state
+        last_applied = st.get('last_applied_power', None)
+
+        # Avoid hammering the USB device if nothing changed.
+        if last_applied is None or float(last_applied) != float(applied):
+            try:
+                self.actor.updatePower(applied)
+            except Exception as e:
+                logger.error(f"{self.name}: Failed to apply power {applied} ({source}): {e}")
+            st['last_applied_power'] = float(applied)
+
+        # Log only when the guard reason changes (keeps journalctl quiet).
+        last_reason = st.get('last_reason', None)
+        if last_reason != reason:
+            # Use INFO for meaningful guard actions; DEBUG for holds.
+            if reason.startswith("Hold"):
+                logger.debug(f"{self.name}: PowerGuard {reason} (req={requested_power}, applied={applied})")
+            else:
+                logger.info(f"{self.name}: PowerGuard {reason} (req={requested_power}, applied={applied})")
+            st['last_reason'] = reason
+
+        return float(applied)
+
     async def run(self):
         await asyncio.sleep(5)
         while True:
@@ -283,7 +415,7 @@ class Controller(interfaces.Component, interfaces.Runnable):
                             output = self.logic.calc(inputs, self.targetTemp)
                         else:
                             output = self.logic.calc(self.sensor.temp(), self.targetTemp)
-                    self.actor.updatePower(output)
+                    output = self._set_power_guarded(output, source='auto', current_temp=self.sensor.temp())
     
                 # Update histories for controllers with actors
                 self.timestamp_history.append(time())
