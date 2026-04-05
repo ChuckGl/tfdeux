@@ -1,6 +1,5 @@
 # filename: TiltSensor.py
 
-import aioblescan as aiobs
 import asyncio
 import datetime
 import logging
@@ -8,6 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from collections import deque
 
 from event import notify, Event
+from plugins.BLEScanner import BLEScanner
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,14 @@ def color_lookup(color):
 
 # Factory function to create TiltSensor instances
 def factory(name, settings):
-    return TiltSensor(name, settings['color'], settings['tempclbr'], settings['gravclbr'], settings['startgrav'], settings['sendtime'])
+    return TiltSensor(
+        name,
+        settings['color'],
+        settings['tempclbr'],
+        settings['gravclbr'],
+        settings['startgrav'],
+        settings['sendtime'],
+    )
 
 # Conversion functions for various brewing calculations
 def to_celsius(fahrenheit):
@@ -74,11 +81,13 @@ class TiltSensor:
         self.start_gravity = Decimal(startgrav).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
         self.sendtime = sendtime
         self.last_sendtime = datetime.datetime.min
-        self.dev_id = 0
+
+        # NOTE: dev_id/socket/scan loop moved to shared BLEScanner
         self.smoothing_window = 60
         self.gravity_list = deque(maxlen=self.smoothing_window)
         self.temp_list = deque(maxlen=self.smoothing_window)
         self.last_value_received = datetime.datetime.now() - self._cache_expiry_seconds()
+
         self.lastTemp = Decimal(0.0).quantize(Decimal('0.1'))
         self.lastGravity = Decimal(0.0).quantize(Decimal('0.001'))
         self.lastABV = Decimal(0.0).quantize(Decimal('0.01'))
@@ -87,14 +96,10 @@ class TiltSensor:
         self.rssi = 0
         self.tilt_pro = False
 
-        try:
-            self.sock = aiobs.create_bt_socket(self.dev_id)
-            logger.info("Created Bluetooth socket")
-        except OSError as e:
-            logger.error(f"Unable to create socket - {e}. Is there a Bluetooth adapter attached?")
-            asyncio.get_event_loop().call_later(60, exit, 1)
-
-        asyncio.get_event_loop().create_task(self.run())
+        # Register with shared scanner (prevents scan contention with other BLE sensors)
+        scanner = BLEScanner.instance()
+        scanner.register(self.process_ble_beacon)
+        asyncio.get_event_loop().create_task(scanner.start())
 
     def _cache_expiry_seconds(self) -> datetime.timedelta:
         return datetime.timedelta(seconds=(self.smoothing_window * 1.2 * 4))
@@ -149,42 +154,12 @@ class TiltSensor:
             self.gravity_offset = Decimal(gravCalb).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
         return self.gravity_offset
 
-    async def shutdown(self):
-        """Cleanup and stop the Bluetooth scan."""
-        logger.info('Shutting down TiltSensor...')
-        try:
-            await self.btctrl.stop_scan_request()
-            command = aiobs.HCI_Cmd_LE_Advertise(enable=False)
-            await self.btctrl.send_command(command)
-        except Exception as e:
-            logger.error(f"Error during shutdown: {e}")
-        finally:
-            if self.conn:
-                self.conn.close()
-            logger.info('TiltSensor shutdown complete.')
-
-    async def run(self):
-        event_loop = asyncio.get_running_loop()
-        self.conn, self.btctrl = await event_loop._create_connection_transport(
-            self.sock, aiobs.BLEScanRequester, None, None
-        )
-
-        # Set the process method to handle BLE beacons
-        self.btctrl.process = self.process_ble_beacon
-        await self.btctrl.send_scan_request()
-
-        try:
-            while True:
-                await asyncio.sleep(3600)
-        except asyncio.CancelledError:
-            logger.info('Task was cancelled')
-        except KeyboardInterrupt:
-            logger.info('Keyboard interrupt')
-        finally:
-            await self.shutdown()
-
     def process_ble_beacon(self, data):
         """Process incoming BLE beacon data."""
+        # We keep your original logic intact: decode HCI event and pull manufacturer data
+        # using aioblescan's event parser, then match by Tilt UUID signature.
+        import aioblescan as aiobs  # local import to keep file-level deps minimal
+
         ev = aiobs.HCI_Event()
         try:
             ev.decode(data)
@@ -204,6 +179,7 @@ class TiltSensor:
             manufacturer_data = ev.retrieve("Manufacturer Specific Data")
             if not manufacturer_data:
                 return False
+
             payload = manufacturer_data[0].payload[1].val.hex()
 
             uuid = payload[4:36]
@@ -229,7 +205,7 @@ class TiltSensor:
 
             self._add_to_list(gravity, temp)
 
-            # Get Brix, Gravity, and Attenuation
+            # Get Brix, ABV, and Attenuation
             abv = to_abv(gravity, self.start_gravity)
             atten = to_atten(gravity, self.start_gravity)
             brix = to_brix(gravity)
@@ -239,7 +215,7 @@ class TiltSensor:
             self.lastGravity = gravity
             self.lastABV = abv
             self.lastAtten = atten
-            #self.lastOG = self.start_gravity
+            self.rssi = rssi
 
             # Send notifications if time interval has passed
             current_time = datetime.datetime.now()
@@ -251,6 +227,8 @@ class TiltSensor:
                 notify(Event(source=self.name, endpoint='atten', data=float(atten)))
                 notify(Event(source=self.name, endpoint='ograv', data=float(self.start_gravity)))
                 self.last_sendtime = current_time
+
+            return True
 
         except Exception as e:
             logger.error(f"Error processing BLE beacon: {e}")
