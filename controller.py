@@ -1,4 +1,4 @@
-# filename: controller.py
+# filename: controller.py 01APR2026 0643am
 
 import asyncio
 import decimal
@@ -17,7 +17,7 @@ import event
 import interfaces
 import syscontroller
 from common import app, components
-#from plugins.DualLoopLogic import DualLoopLogic
+# from plugins.DualLoopLogic import DualLoopLogic
 
 
 logger = logging.getLogger(__name__)
@@ -25,16 +25,17 @@ logger = logging.getLogger(__name__)
 HISTORY_SIZE = 1440
 HISTORY_FILE_PATH = '/home/pi/tfdeux/history'  # Set a proper path for history files
 
-
 CONFIG_PATH = '/home/pi/tfdeux/config.yaml'
 
+
+# Update a sensor setting in config.yaml
 def update_config_file(sensor_name, key, value):
     yaml = YAML()
     try:
         # Read the existing config file
         with open(CONFIG_PATH, "r") as file:
             config = yaml.load(file)
-        
+
         # Find the sensor by name and update the key
         for sensor in config["sensors"]:
             if sensor_name in sensor:  # Match the sensor name (e.g., TiltYellow)
@@ -43,18 +44,30 @@ def update_config_file(sensor_name, key, value):
                     break
         else:
             raise KeyError(f"Sensor {sensor_name} or key {key} not found in config.yaml")
-        
+
         # Write the updated config back
         with open(CONFIG_PATH, "w") as file:
             yaml.dump(config, file)
-        
+
         logger.info(f"Updated config.yaml: {sensor_name} -> {key} = {value}")
     except Exception as e:
         logger.error(f"Failed to update config.yaml: {e}")
 
+
 class Controller(interfaces.Component, interfaces.Runnable):
-    def __init__(self, name, sensor, actor, logic, targetTemp=0.0, initiallyEnabled=False, initiallyAutomatic=False, reload_history='no', power_guard=None):
-        self.w1sensor = components.get('Onewire')
+    def __init__(
+        self,
+        name,
+        sensor,
+        actor,
+        logic,
+        targetTemp=0.0,
+        initiallyEnabled=False,
+        initiallyAutomatic=False,
+        reload_history='no',
+        power_guard=None
+    ):
+        self.w1sensor = components.get('Inkbird')
         self.name = name
         self._enabled = initiallyEnabled
         self._autoMode = initiallyAutomatic
@@ -73,6 +86,9 @@ class Controller(interfaces.Component, interfaces.Runnable):
         self.ograv_history = []
         self.history_file = os.path.join(HISTORY_FILE_PATH, f'{name}_history.json')
 
+        # Track whether we've already logged an active stale-sensor fault
+        self._stale_sensor_fault_active = False
+
         # Power guard settings (compressor protection / long-run rest)
         self.power_guard = power_guard or {}
         now = time()
@@ -86,16 +102,30 @@ class Controller(interfaces.Component, interfaces.Runnable):
             'last_reason': None,
         }
 
-
         if reload_history.lower() == 'yes':
             self.load_history()  # Load history on initialization
-        
+
         sockjs.add_endpoint(app, prefix=f'/controllers/{self.name}/ws', name=f'{self.name}-ws', handler=self.websocket_handler)
         asyncio.ensure_future(self.run())
 
         event.notify(event.Event(source=self.name, endpoint='initialSetpoint', data=self.targetTemp))
         event.notify(event.Event(source=self.name, endpoint='enabled', data=self._enabled))
         event.notify(event.Event(source=self.name, endpoint='automatic', data=self._autoMode))
+
+    # Safely determine whether a sensor is stale
+    def _sensor_is_stale(self, sensor):
+        if sensor is None:
+            return False
+
+        expired_method = getattr(sensor, 'expired', None)
+        if not callable(expired_method):
+            return False
+
+        try:
+            return bool(expired_method())
+        except Exception as e:
+            logger.error(f"{self.name}: Failed to check sensor expiry for {getattr(sensor, 'name', sensor.__class__.__name__)}: {e}")
+            return True
 
     def callback(self, endpoint, data):
         includeSetpoint = True
@@ -281,7 +311,6 @@ class Controller(interfaces.Component, interfaces.Runnable):
         except Exception as e:
             logger.error(f"Failed to load history for {self.name}: {e}")
 
-
     # Apply compressor-safe timing and optional long-run rest.
     # This does NOT change the control logic output; it only gates what we actually apply to the actor.
     def _apply_power_guard(self, requested_power, current_temp=None):
@@ -405,29 +434,53 @@ class Controller(interfaces.Component, interfaces.Runnable):
             # Skip actor and sensor logic if the controller is System
             if self.name != "System":
                 output = 0.0
+                primary_temp = self.sensor.temp()
+                w1_temp = self.w1sensor.temp() if self.w1sensor is not None else None
+                sensor_stale = self._sensor_is_stale(self.sensor)
+
+                if sensor_stale:
+                    if not self._stale_sensor_fault_active:
+                        logger.error(
+                            f"{self.name}: Primary sensor data is stale; forcing output OFF until fresh data returns"
+                        )
+                        self._stale_sensor_fault_active = True
+                else:
+                    if self._stale_sensor_fault_active:
+                        logger.info(f"{self.name}: Primary sensor data is fresh again; automatic control resumed")
+                        self._stale_sensor_fault_active = False
+
                 if self.enabled:
                     if self._autoMode:
-                        if self.logic.__class__.__name__ == "DualLoopLogic":
-                            inputs = {
-                                'Tilt': self.sensor.temp(),
-                                'Onewire': self.w1sensor.temp()
-                            }
-                            output = self.logic.calc(inputs, self.targetTemp)
+                        if sensor_stale:
+                            output = 0.0
+                            self._set_power_guarded(0.0, source='stale-sensor', force=True)
                         else:
-                            output = self.logic.calc(self.sensor.temp(), self.targetTemp)
-                    output = self._set_power_guarded(output, source='auto', current_temp=self.sensor.temp())
-    
+                            if self.logic.__class__.__name__ == "DualLoopLogic":
+                                inputs = {
+                                    'Tilt': primary_temp,
+                                    'Onewire': w1_temp
+                                }
+                                output = self.logic.calc(inputs, self.targetTemp)
+                            else:
+                                output = self.logic.calc(primary_temp, self.targetTemp)
+
+                            output = self._set_power_guarded(output, source='auto', current_temp=primary_temp)
+                    else:
+                        output = self.actor.getPower()
+                else:
+                    output = 0.0
+
                 # Update histories for controllers with actors
                 self.timestamp_history.append(time())
                 self.power_history.append(output)
-                self.temp_history.append(self.sensor.temp())
+                self.temp_history.append(primary_temp)
                 self.setpoint_history.append(self.targetTemp)
-                self.w1temp_history.append(self.w1sensor.temp())
+                self.w1temp_history.append(w1_temp)
                 self.gravity_history.append(self.sensor.gravity())
                 self.abv_history.append(self.sensor.abv())
                 self.atten_history.append(self.sensor.atten())
                 self.ograv_history.append(self.sensor.ograv())
-    
+
                 # Cull histories if they exceed the size limit
                 if len(self.timestamp_history) == HISTORY_SIZE + 1:
                     i = self.mostredundanttime(self.timestamp_history)
@@ -440,11 +493,11 @@ class Controller(interfaces.Component, interfaces.Runnable):
                     del self.abv_history[i]
                     del self.atten_history[i]
                     del self.ograv_history[i]
-    
+
                 # Always broadcast details for all controllers, including System
                 self.broadcastDetails()
                 self.save_history()  # Save history periodically
-    
+
             await asyncio.sleep(10)
 
     async def websocket_handler(self, session, msg, additional_argument=None, *args):
@@ -463,14 +516,22 @@ class Controller(interfaces.Component, interfaces.Runnable):
                     for endpoint, value in data.items():
                         self.callback(endpoint, value)
                 except json.JSONDecodeError as e:
-                    logger.error(f"Failed to decode WebSocket message: session={session}, controller={self.name}, error={e}, raw_data={additional_argument.data}")
+                    logger.error(
+                        f"Failed to decode WebSocket message: session={session}, controller={self.name}, error={e}, raw_data={additional_argument.data}"
+                    )
+
 
 async def listControllers(request):
     res = request.app.router['controllerDetail']
-    controllers = {name: {'url': str(request.url.with_path(str(res.url_for(name=name))))} for name, component in components.items() if isinstance(component, Controller)}
+    controllers = {
+        name: {'url': str(request.url.with_path(str(res.url_for(name=name))))}
+        for name, component in components.items()
+        if isinstance(component, Controller)
+    }
     system_url = str(request.url.with_path('/controllers/System'))
     controllers['System'] = {'url': system_url}
     return web.json_response(controllers)
+
 
 async def controllerDetail(request):
     try:
@@ -485,6 +546,7 @@ async def controllerDetail(request):
         return web.json_response(details)
     except KeyError as e:
         raise web.HTTPNotFound(reason=f'Unknown controller {str(e)}')
+
 
 async def dataHistory(request):
     try:
@@ -505,8 +567,7 @@ async def dataHistory(request):
     except KeyError as e:
         raise web.HTTPNotFound(reason=f'Unknown controller {str(e)}')
 
+
 app.router.add_get('/controllers', listControllers)
 app.router.add_get('/controllers/{name}', controllerDetail, name='controllerDetail')
 app.router.add_get('/controllers/{name}/datahistory', dataHistory, name='dataHistory')
-
-
