@@ -34,7 +34,7 @@ class DualLoopLogic:
             airRaw = inputs.get(self.innerSensor)
             
             if beerRaw is None or airRaw is None:
-                logger.warning("Missing input for beerTemp or airTemp.")
+                logger.debug("Missing input for beerTemp or airTemp.")
                 return self.lastOutput
             
             beerTemp = float(beerRaw)
@@ -64,7 +64,7 @@ class DualLoopLogic:
                     if self.coolingLastChanged is None or (now - self.coolingLastChanged) >= self.coolingMinCycleSecs:
                         self.lastOutput = desiredOutput
                         self.coolingLastChanged = now
-                        logger.warning(f"Cooling state changed to {self.lastOutput} at {datetime.now().strftime('%H:%M:%S')}")
+                        logger.info(f"Cooling state changed to {self.lastOutput} at {datetime.now().strftime('%H:%M:%S')}")
                     else:
                         time_since = now - self.coolingLastChanged
                         time_remaining = max(0, self.coolingMinCycleSecs - time_since)
@@ -74,7 +74,7 @@ class DualLoopLogic:
                             secs = int(seconds % 60)
                             return f"{mins}m {secs}s"
                         
-                        logger.warning(
+                        logger.info(
                             f"Cooling change BLOCKED (min cycle delay): "
                             f"last={self.lastOutput}, desired={desiredOutput}, "
                             f"time since change={fmt(time_since)}, time to release={fmt(time_remaining)}"
@@ -96,9 +96,9 @@ class DualLoopLogic:
     
             # Log the decision
             if target is not None:
-                logger.warning(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}: DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
+                logger.debug(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}: DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target={target:.2f}, output={self.lastOutput}")
             else:
-                logger.warning(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}: DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
+                logger.debug(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}: DualLoopLogic: controller={self.name}, beerTemp={beerTemp:.2f}, airTemp={airTemp:.2f}, setpoint={setpoint:.2f}, target=None, output={self.lastOutput}")
             return self.lastOutput
     
         except Exception as e:

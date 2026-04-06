@@ -21,7 +21,7 @@ print(f"Using config from {configFile}")
 
 config = yaml.load(open(configFile, mode='r'))
 
-logrotate_conf = '/home/pi/tfdeux/logrotate.conf'
+logrotate_conf = '/etc/logrotate.d/tfdeux'
 logrotate_state = '/home/pi/tfdeux/logrotate-state'
 os.system(f"logrotate --state {logrotate_state} --force {logrotate_conf}")
 logLevel = getattr(logging, config.get('logLevel', 'WARNING').upper(), logging.WARNING)
