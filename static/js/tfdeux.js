@@ -1,4 +1,4 @@
-// filename: tfdeux.js
+// filename: tfdeux.js 08APR2026
 
 // Main Vue App for TFDeux Fermentation Controller
 
@@ -18,21 +18,26 @@ const app = Vue.createApp({
         startgrav: '',
       },
       controllerState: Vue.reactive ({
-        temperature: 0,
-        w1Temperature: 0,
-        specificGravity: 0,
-        abv: 0,
-        atten: 0,
+        temperature: null,
+        fridgeTemperature: null,
+        specificGravity: null,
+        abv: null,
+        atten: null,
         originalGravity: 0,
+        sensorStale: false,
+        fridgeSensorStale: false,
         fridgeEnabled: false,
         fridgeAutomatic: false,
         fridgePower: 0,
         fridgeSetpoint: 0,
+        fridgeStatusText: '',
         heaterEnabled: false,
         heaterAutomatic: false,
         heaterPower: 0,
         heaterSetpoint: 0,
+        heaterStatusText: '',
       }),
+      temperatureUnit: 'F',
       formattedDateTime: '',
       dateTimeInterval: null,
       numpadVisible: false,
@@ -42,70 +47,133 @@ const app = Vue.createApp({
   },
   computed: {
     automaticStrFridge() {
-      // Returns "Auto" or "Manual" based on fridgeAutomatic state
       return this.controllerState.fridgeAutomatic ? "Auto" : "Manual";
     },
     automaticStrHeater() {
-      // Returns "Auto" or "Manual" based on heaterAutomatic state
       return this.controllerState.heaterAutomatic ? "Auto" : "Manual";
     },
     enabledStrFridge() {
-      // Returns "Enabled" or "Disabled" based on fridgeEnabled state
       return this.controllerState.fridgeEnabled ? "Enabled" : "Disabled";
     },
     enabledStrHeater() {
-      // Returns "Enabled" or "Disabled" based on heaterEnabled state
       return this.controllerState.heaterEnabled ? "Enabled" : "Disabled";
     },
     fridgeButtonStyle() {
-      // Style for the fridge button, changing color based on power
       return {
         color: this.controllerState.fridgePower === 100 ? "#3399ff" : "#d3d3d3",
         fontSize: "40px",
       };
     },
     heaterButtonStyle() {
-      // Style for the heater button, changing color based on power
       return {
         color: this.controllerState.heaterPower === 100 ? "#cc0000" : "#d3d3d3",
         fontSize: "40px",
       };
     },
     formattedABV() {
-      // Returns ABV formatted to 2 decimal places or '-'
+      if (this.controllerState.sensorStale) {
+        return "---";
+      }
+
       return this.controllerState.abv !== null && this.controllerState.abv !== undefined
         ? this.controllerState.abv.toFixed(2)
-        : "-";
+        : "---";
     },
     formattedAtten() {
-      // Returns attenuation formatted to 2 decimal places or '-'
+      if (this.controllerState.sensorStale) {
+        return "---";
+      }
+
       return this.controllerState.atten !== null && this.controllerState.atten !== undefined
         ? this.controllerState.atten.toFixed(2)
-        : "-";
+        : "---";
     },
     formattedGravity() {
-      // Returns specific gravity formatted to 4 decimal places or '-'
+      if (this.controllerState.sensorStale) {
+        return "---";
+      }
+
       return this.controllerState.specificGravity !== null && this.controllerState.specificGravity !== undefined
         ? this.controllerState.specificGravity.toFixed(4)
-        : "-";
+        : "---";
     },
     formattedOriginalGravity() {
-      // Returns original gravity formatted to 4 decimal places or '-'
       return this.controllerState.originalGravity !== null && this.controllerState.originalGravity !== undefined
         ? this.controllerState.originalGravity.toFixed(4)
         : "-";
     },
-    formattedTemperature() {
-      // Returns temperature formatted to 1 decimal place or '-'
-      return this.controllerState.temperature !== null && this.controllerState.temperature !== undefined
-        ? this.controllerState.temperature.toFixed(1)
-        : "-";
+    temperatureLabelUnit() {
+      return this.temperatureUnit === 'C' ? '&deg;C' : '&deg;F';
     },
-    formattedW1Temperature() {
-      // Returns W1 temperature formatted to 1 decimal place or '-'
-      return this.controllerState.w1Temperature !== null && this.controllerState.w1Temperature !== undefined
-        ? this.controllerState.w1Temperature.toFixed(1)
-        : "-";
+    setpointUnitLabel() {
+      return this.temperatureUnit === 'C' ? '°C' : '°F';
+    },
+    formattedTemperature() {
+      if (this.controllerState.sensorStale) {
+        return "---";
+      }
+
+      if (this.controllerState.temperature === null || this.controllerState.temperature === undefined) {
+        return "---";
+      }
+
+      const f = this.controllerState.temperature;
+      const c = (f - 32) * 5 / 9;
+
+      return this.temperatureUnit === 'C'
+        ? c.toFixed(1)
+        : f.toFixed(1);
+    },
+    formattedFridgeTemperature() {
+      if (this.controllerState.fridgeSensorStale) {
+        return "---";
+      }
+
+      if (this.controllerState.fridgeTemperature === null || this.controllerState.fridgeTemperature === undefined) {
+        return "---";
+      }
+
+      const f = this.controllerState.fridgeTemperature;
+      const c = (f - 32) * 5 / 9;
+
+      return this.temperatureUnit === 'C'
+        ? c.toFixed(1)
+        : f.toFixed(1);
+    },
+    displayedFridgeSetpoint() {
+      const f = this.controllerState.fridgeSetpoint;
+
+      if (f === null || f === undefined || Number.isNaN(f)) {
+        return "";
+      }
+
+      if (this.temperatureUnit === 'C') {
+        return (((f - 32) * 5) / 9).toFixed(1);
+      }
+
+      return Number(f).toFixed(1);
+    },
+    displayedHeaterSetpoint() {
+      const f = this.controllerState.heaterSetpoint;
+
+      if (f === null || f === undefined || Number.isNaN(f)) {
+        return "";
+      }
+
+      if (this.temperatureUnit === 'C') {
+        return (((f - 32) * 5) / 9).toFixed(1);
+      }
+
+      return Number(f).toFixed(1);
+    },
+    fridgeStatusTextDisplay() {
+      return this.controllerState.fridgeStatusText || 'Fridge: -';
+    },
+    heaterStatusTextDisplay() {
+      return this.controllerState.heaterStatusText || 'Heater: -';
+    },
+    combinedStatusText() {
+      return `${this.fridgeStatusTextDisplay} | ${this.heaterStatusTextDisplay}`;
     },
   },
   watch: {
@@ -114,6 +182,12 @@ const app = Vue.createApp({
     }
   },
   methods: {
+    // Toggle displayed temperature unit for Beer/Fridge temps and both setpoints
+    toggleTemperatureUnit() {
+      this.temperatureUnit = this.temperatureUnit === 'F' ? 'C' : 'F';
+      localStorage.setItem('tfdeuxTemperatureUnit', this.temperatureUnit);
+    },
+
     // Initialize Fridge WebSocket
     newWsConnFridge(url) {
       this.fridgeWs = new SockJS(url);
@@ -121,17 +195,20 @@ const app = Vue.createApp({
         const data = msg.data;
         Object.assign(this.controllerState, {
           temperature: data.temperature,
-          w1Temperature: data.w1temperature,
+          fridgeTemperature: data.fridgeTemperature,
           specificGravity: data.gravity,
           abv: data.abv,
           atten: data.atten,
           originalGravity: data.ograv,
           tempCalibration: data.tcalb,
           gravCalibration: data.gcalb,
+          sensorStale: !!data.sensorStale,
+          fridgeSensorStale: !!data.fridgeSensorStale,
           fridgeEnabled: data.enabled,
           fridgeAutomatic: data.automatic,
           fridgePower: data.power,
           fridgeSetpoint: data.setpoint,
+          fridgeStatusText: data.statusText ? `Fridge: ${data.statusText}` : 'Fridge: -',
         });
       };
       this.fridgeWs.onclose = () => {
@@ -141,6 +218,7 @@ const app = Vue.createApp({
         console.error("Fridge WebSocket error:", e);
       };
     },
+
     // Initialize Heater WebSocket
     newWsConnHeater(url) {
       this.heaterWs = new SockJS(url);
@@ -151,6 +229,7 @@ const app = Vue.createApp({
           heaterAutomatic: data.automatic,
           heaterPower: data.power,
           heaterSetpoint: data.setpoint,
+          heaterStatusText: data.statusText ? `Heater: ${data.statusText}` : 'Heater: -',
         });
       };
       this.heaterWs.onclose = () => {
@@ -182,6 +261,7 @@ const app = Vue.createApp({
       this.controllerState[key] = newPower;
       this.updatePower(newPower, type);
     },
+
     // Send power update to backend
     updatePower(power, type) {
       const ws = type === "Fridge" ? this.fridgeWs : this.heaterWs;
@@ -191,6 +271,7 @@ const app = Vue.createApp({
         console.error(`${type} WebSocket is not open.`);
       }
     },
+
     // Send state update to backend
     toggleState(key, type) {
       const ws = type === "Fridge" ? this.fridgeWs : this.heaterWs;
@@ -203,9 +284,12 @@ const app = Vue.createApp({
         console.error(`${type} WebSocket is not open.`);
       }
     },
+
     // Update controller temperature setpoint and send to backend
+    // Backend remains in °F regardless of frontend display mode
     updateSetpoint(value, type) {
       const ws = type === "Fridge" ? this.fridgeWs : this.heaterWs;
+
       if (ws?.readyState === SockJS.OPEN) {
         this.controllerState[`${type.toLowerCase()}Setpoint`] = value;
         ws.send(JSON.stringify({ setpoint: value }));
@@ -213,6 +297,7 @@ const app = Vue.createApp({
         console.error(`${type} WebSocket is not open.`);
       }
     },
+
     // Update Tilt settings and send to backend
     updateTilt(value, type, dataType) {
       const ws = this.fridgeWs;
@@ -226,14 +311,18 @@ const app = Vue.createApp({
         console.error(`${type} WebSocket is not open.`);
       }
     },
+
     // Reload page
     reloadPage() {
       window.location.reload();
     },
-    // Open the chart page
+
+    // Open the chart page with current temperature unit
     openCharts() {
-      window.open("index2.html", "_blank");
+      localStorage.setItem('tfdeuxTemperatureUnit', this.temperatureUnit);
+      window.open(`index2.html?unit=${encodeURIComponent(this.temperatureUnit)}`, "_blank");
     },
+
     // Handle menu closing after item click
     handleMenuAction(action) {
       const actions = {
@@ -248,6 +337,7 @@ const app = Vue.createApp({
       actions[action]?.();
       this.menuOpen = false;
     },
+
     // Send system admin command (reboot, shutdown)
     sendSystemCommand(command) {
       if (this.systemWs?.readyState === SockJS.OPEN) {
@@ -257,58 +347,104 @@ const app = Vue.createApp({
         console.error("System WebSocket is not open.");
       }
     },
+
     // Show the numpad
+    // For setpoints: populate numpad with the displayed unit (°F or °C)
     showNumpadForField(field) {
       this.numpadInputField = field;
-      this.numpadValue = this.controllerState[field]?.toString() || "0";
+
+      if (field === 'fridgeSetpoint') {
+        this.numpadValue = this.displayedFridgeSetpoint || "0";
+      } else if (field === 'heaterSetpoint') {
+        this.numpadValue = this.displayedHeaterSetpoint || "0";
+      } else {
+        this.numpadValue = this.controllerState[field]?.toString() || "0";
+      }
+
       this.numpadVisible = true;
     },
+
+    // Close numpad without saving changes
+    closeNumpad() {
+      this.numpadVisible = false;
+      this.numpadValue = '';
+      this.numpadInputField = '';
+    },
+
     // Add a method to toggle positive/negative for numpad value
     toggleSign() {
       if (this.numpadValue.startsWith("-")) {
-        this.numpadValue = this.numpadValue.slice(1); // Remove the negative sign
+        this.numpadValue = this.numpadValue.slice(1);
       } else if (this.numpadValue !== "0") {
-        this.numpadValue = `-${this.numpadValue}`; // Add the negative sign
+        this.numpadValue = `-${this.numpadValue}`;
       }
     },
+
     // Handle numpad submission to input field
+    // If display is in °C, convert entered setpoint back to °F before sending to backend
     handleNumpadSubmit() {
       const numericValue = parseFloat(this.numpadValue);
-      this.controllerState[this.numpadInputField] = numericValue;
+
       if (this.numpadInputField === "fridgeSetpoint") {
-        this.updateSetpoint(numericValue, "Fridge");
+        const backendValue = this.temperatureUnit === 'C'
+          ? ((numericValue * 9) / 5) + 32
+          : numericValue;
+        this.updateSetpoint(backendValue, "Fridge");
+
       } else if (this.numpadInputField === "heaterSetpoint") {
-        this.updateSetpoint(numericValue, "Heater");
-      } else if (this.numpadInputField === "originalGravity") {
-        this.updateTilt(numericValue, "originalGravity", "ograv");
-      } else if (this.numpadInputField === "tempCalibration") {
-        this.updateTilt(numericValue, "tempCalibration", "tcalb");
-      } else if (this.numpadInputField === "gravCalibration") {
-        this.updateTilt(numericValue, "gravCalibration", "gcalb");
+        const backendValue = this.temperatureUnit === 'C'
+          ? ((numericValue * 9) / 5) + 32
+          : numericValue;
+        this.updateSetpoint(backendValue, "Heater");
+
+      } else {
+        this.controllerState[this.numpadInputField] = numericValue;
+
+        if (this.numpadInputField === "originalGravity") {
+          this.updateTilt(numericValue, "originalGravity", "ograv");
+        } else if (this.numpadInputField === "tempCalibration") {
+          this.updateTilt(numericValue, "tempCalibration", "tcalb");
+        } else if (this.numpadInputField === "gravCalibration") {
+          this.updateTilt(numericValue, "gravCalibration", "gcalb");
+        }
       }
+
       this.numpadVisible = false;
+      this.numpadValue = '';
+      this.numpadInputField = '';
     },
+
     startNewBrew() {
       console.log("Tilt settings saved:", this.tiltSettings);
       this.closeTiltDialog();
       console.log("Starting New Brew");
       this.sendSystemCommand("newbrew");
     },
+
     closeTiltDialog() {
       this.tiltDialogVisible = false;
     },
+
     saveTiltSettings() {
       console.log("Tilt settings saved:", this.tiltSettings);
       this.closeTiltDialog();
     },
   },
+
   mounted() {
+    const savedUnit = localStorage.getItem('tfdeuxTemperatureUnit');
+    if (savedUnit === 'F' || savedUnit === 'C') {
+      this.temperatureUnit = savedUnit;
+    }
+
     // Establish connections to controllers and fetch details
     this.tiltSettings.startgrav = this.controllerState.originalGravity;
+
     fetch("/controllers")
       .then((response) => response.json())
       .then((data) => {
         this.controllers = data;
+
         if (data.System) {
           fetch(data.System.url)
             .then((res) => res.json())
@@ -316,6 +452,7 @@ const app = Vue.createApp({
               this.newWsConnSystem(systemData.wsUrl);
             });
         }
+
         if (data.Fridge) {
           fetch(data.Fridge.url)
             .then((res) => res.json())
@@ -323,6 +460,7 @@ const app = Vue.createApp({
               this.newWsConnFridge(fridgeData.wsUrl);
             });
         }
+
         if (data.Heater) {
           fetch(data.Heater.url)
             .then((res) => res.json())
@@ -344,10 +482,11 @@ const app = Vue.createApp({
       });
     }, 1000);
   },
+
   unmounted() {
-    // Clear the interval when the component is unmounted
     clearInterval(this.dateTimeInterval);
   },
+
   template: `
         <q-layout view="hHh lpR fFf">
           <q-page-container>
@@ -382,42 +521,56 @@ const app = Vue.createApp({
                   </q-item>
                 </q-list>
               </q-btn-dropdown>
-        
+
               <!-- Fridge Toolbar -->
               <q-toolbar class="bg-primary text-white dense rounded-borders" style="flex: 1; padding: 4px; margin-right: 4px;">
                 <q-btn flat dense color="white" :label="enabledStrFridge" style="width: 80px;" @click="toggleState('fridgeEnabled', 'Fridge')"/>
                 <div style="width: 4px;"></div>
                 <q-btn flat dense color="white" :label="automaticStrFridge" style="width: 80px;" @click="toggleState('fridgeAutomatic', 'Fridge')"></q-btn>
                 <div style="position: relative; display: inline-block; max-width: 100px; margin-left: 4px;">
-                <q-input dark dense standout v-model="controllerState.fridgeSetpoint" input-class="text-right" style="max-width: 100px; margin-left: 4px; font-size: 20px;" @click="showNumpadForField('fridgeSetpoint')">
-                  <template v-slot:append>
-                    <div style="font-size: 1rem; margin-right: 4px;">&deg;F</div>
-                  </template>
-                </q-input>
+                  <q-input
+                    dark
+                    dense
+                    standout
+                    :model-value="displayedFridgeSetpoint"
+                    input-class="text-right"
+                    style="max-width: 100px; margin-left: 4px; font-size: 20px;"
+                    @click="showNumpadForField('fridgeSetpoint')">
+                    <template v-slot:append>
+                      <div style="font-size: 1rem; margin-right: 4px;">{{ setpointUnitLabel }}</div>
+                    </template>
+                  </q-input>
                 </div>
               </q-toolbar>
-        
+
               <!-- Heater Toolbar -->
               <q-toolbar class="bg-negative text-white dense rounded-borders" style="flex: 1; padding: 4px; margin-left: 4px;">
                 <q-btn flat dense color="white" :label="enabledStrHeater" style="width: 80px;" @click="toggleState('heaterEnabled', 'Heater')"/>
                 <div style="width: 8px;"></div>
                 <q-btn flat dense color="white" :label="automaticStrHeater" style="width: 80px;" @click="toggleState('heaterAutomatic', 'Heater')"></q-btn>
                 <div style="position: relative; display: inline-block; max-width: 100px; margin-left: 4px;">
-                <q-input dark dense standout v-model="controllerState.heaterSetpoint" input-class="text-right" style="max-width: 100px; margin-left: 4px; font-size: 20px;" @click="showNumpadForField('heaterSetpoint')">
-                  <template v-slot:append>
-                    <div style="font-size: 1rem; margin-right: 4px;">&deg;F</div>
-                  </template>
-                </q-input>
+                  <q-input
+                    dark
+                    dense
+                    standout
+                    :model-value="displayedHeaterSetpoint"
+                    input-class="text-right"
+                    style="max-width: 100px; margin-left: 4px; font-size: 20px;"
+                    @click="showNumpadForField('heaterSetpoint')">
+                    <template v-slot:append>
+                      <div style="font-size: 1rem; margin-right: 4px;">{{ setpointUnitLabel }}</div>
+                    </template>
+                  </q-input>
                 </div>
               </q-toolbar>
-        
+
               <!-- Power Buttons (Far Right) -->
               <div class="row items-center q-ml-md" style="gap: 16px;">
-                <q-btn round flat @click="togglePower('Fridge')" ><q-icon name="ac_unit" :style="fridgeButtonStyle" /></q-btn>
+                <q-btn round flat @click="togglePower('Fridge')"><q-icon name="ac_unit" :style="fridgeButtonStyle" /></q-btn>
                 <q-btn round flat @click="togglePower('Heater')" class="q-btn--inline"><q-icon name="local_fire_department" :style="heaterButtonStyle" /></q-btn>
               </div>
             </div>
-        
+
             <!-- Centered Labels and Data Points -->
             <div class="row q-mt-md justify-center">
               <!-- First Line: Gravity and Beer Temp -->
@@ -426,10 +579,15 @@ const app = Vue.createApp({
                 <div style="font-size: 80px; font-weight: bold;">{{ formattedGravity }}</div>
               </div>
               <div class="col-auto text-center q-ml-lg">
-                <div style="font-size: 30px;">Beer Temp (&deg;F)</div>
+                <div
+                  style="font-size: 30px; cursor: pointer;"
+                  @click="toggleTemperatureUnit"
+                  v-html="'Beer Temp (' + temperatureLabelUnit + ')'">
+                </div>
                 <div style="font-size: 80px; font-weight: bold;">{{ formattedTemperature }}</div>
               </div>
             </div>
+
             <div class="row q-mt-md justify-center">
               <!-- Second Line: ABV, Atten, Fridge Temp -->
               <div class="col-auto text-center q-mr-lg">
@@ -441,71 +599,88 @@ const app = Vue.createApp({
                 <div style="font-size: 70px; font-weight: bold;">{{ formattedAtten }}</div>
               </div>
               <div class="col-auto text-center q-ml-lg">
-                <div style="font-size: 24px;">Fridge Temp (&deg;F)</div>
-                <div style="font-size: 70px; font-weight: bold;">{{ formattedW1Temperature }}</div>
+                <div
+                  style="font-size: 24px; cursor: pointer;"
+                  @click="toggleTemperatureUnit"
+                  v-html="'Fridge Temp (' + temperatureLabelUnit + ')'">
+                </div>
+                <div style="font-size: 70px; font-weight: bold;">{{ formattedFridgeTemperature }}</div>
+              </div>
+            </div>
+
+            <!-- Controller Status Notice -->
+            <div class="row q-mt-sm justify-center">
+              <div
+                class="col-auto text-center"
+                style="min-width: 700px; max-width: 1000px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 16px;"
+              >
+                <div style="font-size: 18px; font-weight: bold;">
+                  {{ combinedStatusText }}
+                </div>
               </div>
             </div>
           </q-page-container>
 
-      <!-- Tilt Settings Dialog -->
-      <q-dialog v-model="tiltDialogVisible" persistent>
-          <q-card style="min-width: 400px;">
-          <q-card-section>
-              <div class="text-h6">Tilt Settings</div>
-          </q-card-section>
-          <q-card-section>
-              <q-input v-model="controllerState.tempCalibration" label="Calibrate Temp" outlined @click="showNumpadForField('tempCalibration')"/>
-              <q-input v-model="controllerState.gravCalibration" label="Calibrate Grav" outlined @click="showNumpadForField('gravCalibration')"/>
-              <q-input v-model="controllerState.originalGravity" label="Original Grav" outlined @click="showNumpadForField('originalGravity')"/>
-          </q-card-section>
-          <q-card-actions class="q-pa-md row items-center justify-between full-width">
-              <q-btn flat label="New Brew" color="primary" @click="startNewBrew" />
-              <div class="row q-gutter-sm">
-                <q-btn flat label="Cancel" color="negative" @click="closeTiltDialog" />
-                <q-btn flat label="OK" color="primary" @click="saveTiltSettings" />
-              </div>
-          </q-card-actions>
-          </q-card>
-      </q-dialog>
+          <!-- Tilt Settings Dialog -->
+          <q-dialog v-model="tiltDialogVisible" persistent>
+            <q-card style="min-width: 400px;">
+              <q-card-section>
+                <div class="text-h6">Tilt Settings</div>
+              </q-card-section>
+              <q-card-section>
+                <q-input v-model="controllerState.tempCalibration" label="Calibrate Temp" outlined @click="showNumpadForField('tempCalibration')"/>
+                <q-input v-model="controllerState.gravCalibration" label="Calibrate Grav" outlined @click="showNumpadForField('gravCalibration')"/>
+                <q-input v-model="controllerState.originalGravity" label="Original Grav" outlined @click="showNumpadForField('originalGravity')"/>
+              </q-card-section>
+              <q-card-actions class="q-pa-md row items-center justify-between full-width">
+                <q-btn flat label="New Brew" color="primary" @click="startNewBrew" />
+                <div class="row q-gutter-sm">
+                  <q-btn flat label="Cancel" color="negative" @click="closeTiltDialog" />
+                  <q-btn flat label="OK" color="primary" @click="saveTiltSettings" />
+                </div>
+              </q-card-actions>
+            </q-card>
+          </q-dialog>
 
-      <!-- Numpad Dialog -->
-      <q-dialog v-model="numpadVisible" persistent>
-        <q-card style="min-width: 300px;">
-          <q-card-section>
-            <div class="numpad-display text-h5 text-center">{{ numpadValue || '\u00A0' }}</div>
-          </q-card-section>
-          <q-card-section>
-            <div class="numpad-row">
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '1'">1</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '2'">2</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '3'">3</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue = ''">Clear</q-btn>
-            </div>
-            <div class="numpad-row">
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '4'">4</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '5'">5</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '6'">6</q-btn>
-              <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="numpadValue = numpadValue.slice(0, -1)" label="Backspace"></q-btn>
-            </div>
-            <div class="numpad-row">
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '7'">7</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '8'">8</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '9'">9</q-btn>
-              <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="handleNumpadSubmit" label="Enter"></q-btn>
-            </div>
-            <div class="numpad-row">
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '0'">0</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue.includes('.') ? '' : numpadValue += '.'">.</q-btn>
-              <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="toggleSign">+/-</q-btn>
-            </div>
-            <div class="numpad-row">
-            </div>
-          </q-card-section>
-          <q-card-actions align="center">
-          </q-card-actions>
-        </q-card>
-      </q-dialog>
-        
+          <!-- Numpad Dialog -->
+          <q-dialog v-model="numpadVisible" persistent>
+            <q-card style="min-width: 300px;">
+              <q-card-section>
+                <div class="numpad-display text-h5 text-center">{{ numpadValue || '\\u00A0' }}</div>
+              </q-card-section>
+              <q-card-section>
+                <div class="numpad-row">
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '1'">1</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '2'">2</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 1.25rem;" @click="numpadValue += '3'">3</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue = ''">Clear</q-btn>
+                </div>
+                <div class="numpad-row">
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '4'">4</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '5'">5</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '6'">6</q-btn>
+                  <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="numpadValue = numpadValue.slice(0, -1)" label="Backspace"></q-btn>
+                </div>
+                <div class="numpad-row">
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '7'">7</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '8'">8</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 2rem;" @click="numpadValue += '9'">9</q-btn>
+                  <q-btn flat dense color="primary" style="font-size: 1.25rem" @click="handleNumpadSubmit" label="Enter"></q-btn>
+                </div>
+                <div class="numpad-row">
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue += '0'">0</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem" @click="numpadValue.includes('.') ? '' : numpadValue += '.'">.</q-btn>
+                  <q-btn flat dense class="q-ma-sm" style="color: black; font-size: 1.25rem; margin-right: 1.25rem;" @click="toggleSign">+/-</q-btn>
+                  <q-btn flat dense color="negative" style="font-size: 1.25rem" @click="closeNumpad" label="Cancel"></q-btn>
+                </div>
+                <div class="numpad-row">
+                </div>
+              </q-card-section>
+              <q-card-actions align="center">
+              </q-card-actions>
+            </q-card>
+          </q-dialog>
+
           <!-- Footer -->
           <q-footer class="bg-dark text-white q-px-md q-py-sm" elevated>
             <div class="row justify-between text-body2 items-center">
@@ -520,4 +695,3 @@ const app = Vue.createApp({
 
 app.use(Quasar);
 app.mount('#app');
-

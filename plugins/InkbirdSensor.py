@@ -1,4 +1,4 @@
-# filename: InkbirdTH2.py
+# filename: InkbirdSensor.py
 
 import asyncio
 import datetime
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Factory function
 def factory(name, settings):
-    return InkbirdTH2(
+    return InkbirdSensor(
         name=name,
         mac=settings["mac"],
         sendtime=settings.get("sendtime", 10),
@@ -30,6 +30,8 @@ def _parse_ad_structures(payload: bytes):
     while i < len(payload):
         l = payload[i]
         if l == 0:
+            break
+        if i + 1 >= len(payload):
             break
         ad_type = payload[i + 1]
         ad_data = payload[i + 2 : i + 1 + l]
@@ -56,6 +58,8 @@ def _parse_le_advertising_reports(pkt: bytes):
         if off + 9 > len(params):
             break
 
+        # event_type = params[off + 0]
+        # addr_type  = params[off + 1]
         addr = params[off + 2 : off + 8]
         data_len = params[off + 8]
         off += 9
@@ -64,7 +68,11 @@ def _parse_le_advertising_reports(pkt: bytes):
             break
 
         data = params[off : off + data_len]
-        rssi = int.from_bytes(params[off + data_len : off + data_len + 1], "little", signed=True)
+        rssi = int.from_bytes(
+            params[off + data_len : off + data_len + 1],
+            "little",
+            signed=True,
+        )
         off += data_len + 1
 
         out.append((addr, data, rssi))
@@ -79,24 +87,43 @@ def _decode_temp_c_from_msd(msd: bytes):
 
 def _c_to_f(temp_c: Decimal) -> Decimal:
     return (temp_c * Decimal(9) / Decimal(5) + Decimal(32)).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
     )
 
-# ---------- Inkbird TH2 Sensor ----------
+def _parse_name_from_ad(ad_payload: bytes):
+    for ad_type, ad_data in _parse_ad_structures(ad_payload):
+        # 0x08 = Shortened Local Name, 0x09 = Complete Local Name
+        if ad_type in (0x08, 0x09):
+            try:
+                return ad_data.decode("utf-8", errors="ignore").strip().lower()
+            except Exception:
+                return None
+    return None
 
-class InkbirdTH2:
+def _parse_msd_from_ad(ad_payload: bytes):
+    for ad_type, ad_data in _parse_ad_structures(ad_payload):
+        if ad_type == 0xFF:
+            return ad_data
+    return None
+
+# ---------- Inkbird Sensor ----------
+
+class InkbirdSensor:
     def __init__(self, name, mac, sendtime, tempcalbr):
         self.name = name
         self.mac = mac.lower()
         self.sendtime = int(sendtime)
 
-        # Calibration now in °F
+        # Calibration in °F
         self.temp_offset = Decimal(str(tempcalbr)).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
         )
 
         self.lastTemp = Decimal("0.0").quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
         )
 
         self.last_value_received = (
@@ -117,7 +144,8 @@ class InkbirdTH2:
     def tcalb(self, tempCalb=None):
         if tempCalb is not None:
             self.temp_offset = Decimal(str(tempCalb)).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
             )
         return self.temp_offset
 
@@ -138,38 +166,53 @@ class InkbirdTH2:
             if mac != self.mac:
                 continue
 
-            for ad_type, ad_data in _parse_ad_structures(ad_payload):
-                if ad_type != 0xFF:
-                    continue
+            local_name = _parse_name_from_ad(ad_payload)
+            msd = _parse_msd_from_ad(ad_payload)
 
-                temp_c = _decode_temp_c_from_msd(ad_data)
-                if temp_c is None:
-                    return False
+            if msd is None:
+                continue
 
-                # Convert to Fahrenheit
-                temp_f = _c_to_f(temp_c)
+            # Reject Apple iBeacon / Tilt packets.
+            # Tilt uses Apple company ID 0x004C, which appears as 4c 00
+            # at the start of the manufacturer-specific payload.
+            if len(msd) >= 2 and msd[0:2] == b"\x4c\x00":
+                continue
 
-                # Apply calibration offset (in °F)
-                temp_f = (temp_f + self.temp_offset).quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_UP
-                )
+            # Accept only Inkbird-looking packets.
+            #
+            # Real Inkbird IBS-TH2 devices are commonly seen as local names
+            # "sps" and "tps". The simulator should advertise "tps" for the
+            # Inkbird frame so the same parser works for both.
+            if local_name not in ("sps", "tps"):
+                continue
 
-                self.lastTemp = temp_f
-                self.last_value_received = datetime.datetime.now()
-                self.rssi = int(rssi)
+            temp_c = _decode_temp_c_from_msd(msd)
+            if temp_c is None:
+                continue
 
-                now = datetime.datetime.now()
-                if (now - self.last_sendtime).total_seconds() >= self.sendtime:
-                    notify(
-                        Event(
-                            source=self.name,
-                            endpoint="temperature",
-                            data=float(temp_f),
-                        )
+            temp_f = _c_to_f(temp_c)
+
+            # Apply calibration offset (in °F)
+            temp_f = (temp_f + self.temp_offset).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+
+            self.lastTemp = temp_f
+            self.last_value_received = datetime.datetime.now()
+            self.rssi = int(rssi)
+
+            now = datetime.datetime.now()
+            if (now - self.last_sendtime).total_seconds() >= self.sendtime:
+                notify(
+                    Event(
+                        source=self.name,
+                        endpoint="temperature",
+                        data=float(temp_f),
                     )
-                    self.last_sendtime = now
+                )
+                self.last_sendtime = now
 
-                return True
+            return True
 
         return False
-

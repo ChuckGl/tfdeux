@@ -65,7 +65,9 @@ class DummySensor(Sensor):
         except Exception:
             return 0.0
 
-    def ograv(self):
+    def ograv(self, origGravity=None):
+        if origGravity is not None:
+            self.original_gravity = float(origGravity)
         return self.original_gravity
 
     def brix(self):
@@ -87,7 +89,6 @@ class DummySensor(Sensor):
             self.gravity_offset = float(gravCalb)
         return self.gravity_offset
 
-
     def callback(self, endpoint, data):
         if endpoint == 'temperature' and self.sensor_type in ['thermo', 'tilt']:
             self.fakeTemp = float(data)
@@ -102,11 +103,13 @@ class DummySensor(Sensor):
                 return float(val.strip())
             except ValueError:
                 return None
+
         # Load trace files at startup
         if self.mode == 'file' and self.traceFile:
             if os.path.exists(self.traceFile):
                 with open(self.traceFile) as f:
                     self.tempTrace = [safe_float(line) for line in f if line.strip()]
+
         if self.mode == 'file' and self.gravityFile:
             if os.path.exists(self.gravityFile):
                 with open(self.gravityFile) as f:
@@ -114,6 +117,7 @@ class DummySensor(Sensor):
 
         while True:
             logger.debug(f"[{self.name}] TempIndex: {self.tempIndex}, GravityIndex: {self.gravityIndex}")
+
             if self.sensor_type in ['thermo', 'tilt']:
                 self.lastTemp = await self.readTemp()
                 notify(Event(source=self.name, endpoint='temperature', data=self.lastTemp))
@@ -130,6 +134,7 @@ class DummySensor(Sensor):
 
     async def readTemp(self):
         await asyncio.sleep(0.1)
+
         if self.mode == 'fixed':
             return self.fakeTemp
         elif self.mode == 'random':
@@ -140,7 +145,6 @@ class DummySensor(Sensor):
             else:
                 value = self.tempTrace[-1] if self.loopTrace else self.fakeTemp
 
-            # Advance index
             self.tempIndex += 1
             if self.loopTrace and self.tempIndex >= len(self.tempTrace):
                 self.tempIndex = 0
@@ -149,10 +153,12 @@ class DummySensor(Sensor):
             if value is None:
                 return None
             return round(value, 3)
+
         return self.fakeTemp
 
     async def readGravity(self):
         await asyncio.sleep(0.1)
+
         if self.mode == 'fixed':
             return self.fakeGravity
         elif self.mode == 'random':
@@ -163,7 +169,6 @@ class DummySensor(Sensor):
             else:
                 value = self.gravityTrace[-1] if self.loopTrace else self.fakeGravity
 
-            # Advance index
             self.gravityIndex += 1
             if self.loopTrace and self.gravityIndex >= len(self.gravityTrace):
                 self.gravityIndex = 0
@@ -172,5 +177,5 @@ class DummySensor(Sensor):
             if value is None:
                 return None
             return round(value, 4)
-        return self.fakeGravity
 
+        return self.fakeGravity

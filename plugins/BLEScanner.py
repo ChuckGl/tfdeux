@@ -132,6 +132,45 @@ class BLEScanner:
         def _dispatch(data: bytes):
             self._last_packet_monotonic = time.monotonic()
 
+            # Temporary Ruuvi debug logging
+            try:
+                ev = aiobs.HCI_Event()
+                ev.decode(data)
+
+                manufacturer_data = ev.retrieve("Manufacturer Specific Data")
+                if manufacturer_data:
+                    for entry in manufacturer_data:
+                        try:
+                            payload_bytes = entry.payload[1].val
+                        except Exception:
+                            continue
+
+                        if not payload_bytes or len(payload_bytes) < 2:
+                            continue
+
+                        # Check for Ruuvi manufacturer ID 0x0499
+                        if payload_bytes[0] == 0x99 and payload_bytes[1] == 0x04:
+                            peer_values = ev.retrieve("peer")
+                            peer_mac = peer_values[0].val if peer_values else "unknown"
+
+                            rssi_values = ev.retrieve("rssi")
+                            rssi = rssi_values[-1].val if rssi_values else None
+
+                            payload_mac = "unavailable"
+                            # RAWv2 payload layout includes MAC bytes near the end
+                            # Require enough length before extracting bytes 18:24
+                            if len(payload_bytes) >= 26:
+                                payload_mac = ':'.join(f'{b:02x}' for b in payload_bytes[20:26])
+
+                            logger.info(
+                                f"RUUVI DEBUG -> peer: {peer_mac} | payload: {payload_mac} | rssi: {rssi}"
+                            )
+                        # Only log first matching Ruuvi entry per packet
+                            break
+
+            except Exception as e:
+                logger.error(f"RUUVI DEBUG ERROR: {e}")
+
             for h in self.handlers:
                 try:
                     h(data)
