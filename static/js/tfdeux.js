@@ -1,4 +1,4 @@
-// filename: tfdeux.js 08APR2026
+// filename: tfdeux.js - 29APR2026
 
 // Main Vue App for TFDeux Fermentation Controller
 
@@ -572,11 +572,11 @@ const app = Vue.createApp({
             </div>
 
             <!-- Centered Labels and Data Points -->
-            <div class="row q-mt-md justify-center">
+            <div class="row q-mt-sm justify-center">
               <!-- First Line: Gravity and Beer Temp -->
               <div class="col-auto text-center q-mr-lg">
                 <div style="font-size: 30px;">Gravity (SG)</div>
-                <div style="font-size: 80px; font-weight: bold;">{{ formattedGravity }}</div>
+                <div style="font-size: 80px; font-weight: bold; margin-top: -18px;">{{ formattedGravity }}</div>
               </div>
               <div class="col-auto text-center q-ml-lg">
                 <div
@@ -584,19 +584,19 @@ const app = Vue.createApp({
                   @click="toggleTemperatureUnit"
                   v-html="'Beer Temp (' + temperatureLabelUnit + ')'">
                 </div>
-                <div style="font-size: 80px; font-weight: bold;">{{ formattedTemperature }}</div>
+                <div style="font-size: 80px; font-weight: bold; margin-top: -18px;">{{ formattedTemperature }}</div>
               </div>
             </div>
 
-            <div class="row q-mt-md justify-center">
+            <div class="row q-mt-xs justify-center">
               <!-- Second Line: ABV, Atten, Fridge Temp -->
               <div class="col-auto text-center q-mr-lg">
                 <div style="font-size: 24px;">ABV (%)</div>
-                <div style="font-size: 70px; font-weight: bold;">{{ formattedABV }}</div>
+                <div style="font-size: 70px; font-weight: bold; margin-top: -16px;">{{ formattedABV }}</div>
               </div>
               <div class="col-auto text-center q-ml-lg q-mr-lg">
                 <div style="font-size: 24px;">Atten (%)</div>
-                <div style="font-size: 70px; font-weight: bold;">{{ formattedAtten }}</div>
+                <div style="font-size: 70px; font-weight: bold; margin-top: -16px;">{{ formattedAtten }}</div>
               </div>
               <div class="col-auto text-center q-ml-lg">
                 <div
@@ -604,7 +604,7 @@ const app = Vue.createApp({
                   @click="toggleTemperatureUnit"
                   v-html="'Fridge Temp (' + temperatureLabelUnit + ')'">
                 </div>
-                <div style="font-size: 70px; font-weight: bold;">{{ formattedFridgeTemperature }}</div>
+                <div style="font-size: 70px; font-weight: bold; margin-top: -16px;">{{ formattedFridgeTemperature }}</div>
               </div>
             </div>
 
@@ -695,3 +695,4 @@ const app = Vue.createApp({
 
 app.use(Quasar);
 app.mount('#app');
+
