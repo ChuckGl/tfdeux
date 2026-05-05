@@ -20,8 +20,6 @@ def restart_service():
 
 def new_brew():
     logger.warning("System: ****** Starting New Brew ******")
-    logger.warning("System: ****** New Brew Stopping tfdeux service ******")
-    os.system("sudo systemctl stop tfdeux.service")
     logger.warning("System: ****** New Brew Resetting/Saving History ******")
     os.system("""sudo bash -c 'for f in /home/pi/tfdeux/history/*.json; do mv "$f" "${f%.json}.bak"; done'""")
     logger.warning("System: ****** New Brew Restarting tfdeux service ******")
