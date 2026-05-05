@@ -1,96 +1,279 @@
-# Sample configuration for all tested components
-
-# Log level for console and log file output
+# Console logging level.
+# Usually WARNING so the console is not flooded.
 consoleLoglevel: WARNING
-logLevel: INFO                  # Log file located at ~/tfdeux/tfdeux.log
 
-# Enable/disable Web UI and set port
+# File/application logging level.
+# DEBUG gives detailed troubleshooting logs. INFO is quieter.
+# Log file is in the tfdeux folder
+logLevel: DEBUG
+
+# Web server port for the tfdeux UI/API.
 port: 8080
-enableWebUI: True
 
+# Enable or disable the browser-based tfdeux UI.
+enableWebUI: true
+
+# Sensors provides the data processed and displayed by tfdeux
 sensors:
-  - Onewire:
-      plugin: W1Sensor          # 1 Wire temp sensor for receiving data from a 1 wire
-      id: 28-3ce1e380c8b2       # Unique ID for the 1-Wire sensor
-      pollInterval: 30          # How often (in seconds) to poll the sensor
-      sendtime: 10              # Time (in seconds) between sending data updates
-
-  - TiltYellow:
-      plugin: TiltSensor        # Tilt sensor for receiving data from a tilt
-      color: Yellow             # Color of the Tilt sensor
-      tempclbr: 0               # Temperature calibration offset
-      gravclbr: 0               # Gravity calibration offset
-      startgrav: 1.0612         # Starting gravity value
-      sendtime: 10              # Time (in seconds) between sending data updates
+  # FridgeSensor provides the temperature in the fridge interior compartment.
+  # Currently this sensor must be called "FridgeSensor"
+  - FridgeSensor:
+      # Inkbird BLE temperature sensor
+      plugin: InkbirdSensor       # BLE Inkbird temperature sensor plugin.
+      mac: 49:23:04:08:15:17      # Inkbird BLE MAC address for this unit.
+      sendtime: 10                # Seconds between sensor updates sent to tfdeux.
       
-  - FakeTilt:
-      plugin: DummySensor       # Dummy sensor for testing 
-      type: tilt                # Simulates a Tilt sensor with both temperature and gravity
-      fakeTemp: 60              # Fake temperature reading for the simulated Tilt sensor
-      fakeGravity: 1.065        # Fake gravity reading for the simulated Tilt sensor
+  # BeerSensor provides the data readings for the wort/beer in the fermenter.
+  # Currently this sensor must be called "BeerSensor"
+  - BeerSensor:
+      # Tilt BLE gravity and temperature sensor
+      plugin: TiltSensor          # Tilt hydrometer BLE plugin.
+      color: Blue                 # Tilt color to match.
+      tempclbr: 0                 # Temperature calibration offset.
+      gravclbr: 0                 # Gravity calibration offset.
+      startgrav: 1.0633           # Original gravity used for ABV/attenuation calculations.
+      sendtime: 10                # Seconds between sensor updates sent to tfdeux.
 
-  - FakeTemp:
-      plugin: DummySensor       # Dummy sensor for testing
-      type: thermo              # Simulates a thermometer sensor that provides only temperature
-      fakeTemp: 50              # Fake temperature reading for the simulated thermometer
+  # Other sensor types supported by tfdeux as FridgeSensor and/or BeerSensor
+  - OneWire_DS18B20:
+      # OneWire temperature sensor for a DS18B20-style probe connected to the Pi.
+      plugin: W1Sensor            # OneWire plugin.
+      id: 28-0300a279cd1d         # OneWire device ID under /sys/bus/w1/devices/.
+      pollInterval: 30            # Seconds between direct sensor polls.
+      sendtime: 10                # Seconds between updates sent to tfdeux.
 
-  - FakeHydro:
-      plugin: DummySensor       # Dummy sensor for testing
-      type: hydro               # Simulates a hydrometer that provides only gravity
-      fakeGravity: 1.055        # Fake gravity reading for the simulated hydrometer
+  - RuuviTag2in1:
+      # RuuviTag BLE temperature sensor.
+      plugin: RuuviSensor         # RuuviTag BLE plugin.
+      mac: "d1:dc:1e:aa:a7:dc"    # Ruuvi BLE MAC address.
+      tempclbr: 0.0               # Temperature calibration offset.
+      sendtime: 10                # Seconds between updates sent to tfdeux.
 
+  - DummySensor:
+      # Dummy fridge/air temperature sensor using a flat trace file or fix values.
+      plugin: DummySensor         # DummySensor plugin simulates various sensor types.
+      type: thermo/hydro/tilt     # thermo = temperature only
+                                  # hydro  = gravity only
+                                  # tilt   = temperature + gravity + ABV + attenuation + brix
+      mode: fixed/random/file     # fixed  = constant values (fakeTemp / fakeGravity)
+                                  # random = adds noise around fake values
+                                  # file   = reads values from trace files
+      sendtime: 10                # seconds between updates (int)
+      # --- Temperature settings ---
+      fakeTemp: 68.0              # base temperature value (used in fixed/random, fallback in file)
+      traceFile: beer_temp.txt    # file with temperature values (one per line, used in file mode)
+      tempclbr: 0.0               # stored temp calibration offset (NOT applied in this sensor)
+      # --- Gravity settings ---
+      fakeGravity: 1.024          # base gravity value (used in fixed/random, fallback in file)
+      gravityFile: beer_gravity.txt # file with gravity values (one per line, used in file mode)
+      startgrav: 1.063            # original gravity (used for ABV and attenuation calculations)
+      gravclbr: 0.0               # stored gravity calibration offset (NOT applied in this sensor)
+      # --- File mode behavior ---
+      loopTrace: true/false       # true  = restart trace when end is reached
+                                  # false = hold last value, then fall back to fakeTemp/fakeGravity
+
+# Actors preform the actions of controllers based on the data provided by the sensors.
 actors:
+  # Default actor for controlling the cooling hardware. Typically the fridge compressor.
+  # Currently this sensor must be called Cooling.
   - Cooling:
-      plugin: DummyActor        # A dummy actor for cooling; replace with actual actor if needed
+      plugin: GembirdActor        # Gembird EG-PMS2 USB power strip plugin.
+      outlet: 3                   # Gembird outlet number used for cooling/fridge.
+      device_index: 0             # Index of the Gembird device if more than one is attached.
+      poll_interval: 30           # Seconds between status polls.
 
+  # Default actor for controlling the heating hardware. Typically heating element or pad.
+  # Currently this sensor must be called Heating.
   - Heating:
-      plugin: TPLinkActor       # TPLink actor for controlling sockets
-      ip: 192.168.111.2         # IP address of the TPLink device controlling heating
+      plugin: GembirdActor        # Gembird EG-PMS2 USB power strip plugin.
+      outlet: 4                   # Gembird outlet number used for heating mat/heater.
+      device_index: 0             # Index of the Gembird device if more than one is attached.
+      poll_interval: 30           # Seconds between status polls.
 
-  - Warming:
-      plugin: GembirdActor      # Gembird actor for controlling sockets
-      outlet: 2                 # The socket you want to control
-      device_index: 0           # The Gembird device id
-      poll_interval: 30         # How often to poll the device in seconds
+  # Other actor types supported by tfdeux as Cooling and Heating Actors.
+  - DummyActor:
+      # Dummy actor for testing logic without switching real hardware. Simple on/off.
+      plugin: DummyActor          # Simple on/off simulating a real switcher. For testing.
 
-  - Freezing:
-      plugin: TuyaActor         # Tuya actor for controlling sockets
-      device_id: xxxx           # The device_id of the Tuya device
-      ip: 192.168.111.3         # IP address of the Tuya device controlling the warming
-      local_key: xxxx           # The local_key of the Tuya device
-      dps: 2                    # The dps_id of the socket controlling the warming
-      version: 3.3              # The version of the Tuya device. This is normally 3.3
+  - TPLinkActor:
+      plugin: TPLinkActor         # TPLink IP based socket plugin.
+      ip: 192.168.111.2           # IP address of the TPLink device controlling heating.
 
+  - TuyaActor:
+      plugin: TuyaActor           # Tuya IP based power strip plugin.
+      device_id: xxxx             # The device_id of the Tuya device.
+      ip: 192.168.111.3           # IP address of the Tuya device controlling the warming.
+      local_key: xxxx             # The local_key of the Tuya device.
+      dps: 2                      # The dps_id of the socket controlling the warming.
+      version: 3.3                # The version of the Tuya device. This is normally 3.3.
+
+  - USBRelayActorExample:
+ 	  plugin: USBRelayActor	      # plugin for USB based on/off switch
+      id: RELAY_1                 # relay identifier used by `usbrelay` command
+      inverted: true/false        # false = normal logic, true = invert ON/OFF behavior
+
+  - GPIOActorExample:
+      plugin: GPIOActor           # plugin for RPI GPIO connected switch
+      gpio: 17                    # BCM GPIO pin number
+      pwmFrequency: 2             # PWM frequency in Hz (default = 2)
+      
+# Controllers manage actors and sensors and utilizes the data from them to control fermentation.
 controllers:
+  # Default controllers for managing and using the cooling actors and sensors.
   - Fridge:
-      plugin: HysteresisLogic   # Logic plugin for control of assigned actor
+      # Cooling controller using HysteresisLogic.
+      plugin: HysteresisLogic     # Hysteresis logic plugin.
+      actor: Cooling              # Must match an actor object name above.
+      sensor: BeerSensor          # Must match a sensor object name above.
+      automatic: false            # false = manual mode on startup; true = automatic on startup.
+      initialState: off           # Startup output state: off/on.
+      initialSetpoint: 99         # Startup cooling setpoint. High value prevents cooling call.
+      reload: yes                 # Reload saved runtime/controller state when supported.
+      
+      powerGuard:
+        # Compressor protection / anti-short-cycle settings, in seconds.
+        minOnSec: 300             # Minimum ON time once compressor starts.
+        minOffSec: 600            # Minimum OFF time before compressor may restart.
+        maxOnSec: 5400            # Maximum continuous ON time before forced rest, 90 min.
+        restOffSec: 900           # Forced rest duration after maxOnSec, 15 min.
+        restSkipDelta: 2.0        # Override rest if beer is > setpoint + this delta.
+
       logicCoeffs:
-        allowedOvershoot: 0.4   # How much temperature can rise above setpoint before action is taken
-        allowedUndershoot: 0.4  # How much temperature can drop below setpoint before action is taken
-        keepCold: yes           # Keep the fridge cold
-      actor: Cooling            # The actor controlling cooling
-      sensor: TiltYellow        # The sensor providing temperature data
-      initialSetpoint: 55.0     # Initial setpoint temperature in Fahrenheit
-      initialState: on          # Initial state of the controller (on/off)
-      reload: yes               # Reload data_history from ~/tfdeux/history (yes/no)
+        # Cooling band around setpoint.
+        allowedOvershoot: 0.3     # How far above target before cooling is considered needed.
+        allowedUndershoot: 0.2    # How far below target before cooling should stop/avoid overcooling.
+        keepCold: yes             # Cooling-side hysteresis behavior.
 
   - Heater:
-      plugin: HysteresisLogic   # Logic plugin for control of assigned actor
+      # Heating controller using HysteresisLogic.
+      plugin: HysteresisLogic     # Hysteresis logic plugin.
+      actor: Heating              # Must match an actor object name above.
+      sensor: BeerSensor          # Must match a sensor object name above.
+      automatic: false            # false = manual mode on startup; true = automatic on startup.
+      initialState: off           # Startup output state: off/on.
+      initialSetpoint: -18        # Startup heating setpoint. Low value prevents heating call.
+      reload: yes                 # Reload saved runtime/controller state when supported.
+
+      powerGuard:
+        # Element protection / anti-short-cycle settings, in seconds.
+        minOnSec: 120             # Minimum ON time once compressor starts.
+        minOffSec: 120            # Minimum OFF time before compressor may restart.
+        # These three settings are not required for simple on/off heating elements/pads.
+        maxOnSec: 5400            # Maximum continuous ON time before forced rest, 90 min.
+        restOffSec: 900           # Forced rest duration after maxOnSec, 15 min.
+        restSkipDelta: 2.0        # Override rest if beer is > setpoint + this delta.
+        
       logicCoeffs:
-        allowedOvershoot: 0.4   # How much temperature can rise above setpoint before action is taken
-        allowedUndershoot: 0.4  # How much temperature can drop below setpoint before action is taken
-        keepHot: yes            # Keep the heater on to maintain warmth
-      actor: Heating            # The actor controlling heating
-      sensor: TiltYellow        # The sensor providing temperature data
-      initialSetpoint: 50.0     # Initial setpoint temperature in Fahrenheit
-      initialState: off         # Initial state of the controller (on/off)
-      reload: yes               # Reload data_history from ~/tfdeux/history (yes/no)
+        # Heating band around setpoint.
+        allowedOvershoot: 0.2     # How far above target before heating should stop/avoid overheating.
+        allowedUndershoot: 0.3    # How far below target before heating is considered needed.
+        keepHot: yes              # Heating-side hysteresis behavior.
 
-extensions:
-  - web:
-      plugin: SimpleWebView
-      endpoints:
-        - enable                # Endpoint to enable/disable the system
+  # DualLoopLogic controls beer temperature by dynamically adjusting the target air (fridge) temperature based on how far the beer is from setpoint. 
+  # It uses beer temp to decide how aggressive to be and air temp to drive hardware switching, resulting in smoother control and reduced overshoot.
+  - DualLoopFridgeController:
+      plugin: DualLoopLogic       # DualLoopLogic used
+      logic: DualLoopLogic        # Explicit logic name used by this config style.
+      actor: Cooling              # Or NEWACTOR_DummyCooling for simulation.
+      sensor: BeerSensor          # Primary/outer beer sensor.
+      automatic: false            # false = manual mode on startup; true = automatic on startup.
+      initialState: off           # Startup output state: off/on.
+      initialSetpoint: 99         # Startup cooling setpoint. High value prevents cooling call.
+      
+      powerGuard:
+        # Compressor protection / anti-short-cycle settings, in seconds.
+        minOnSec: 300             # Minimum ON time once compressor starts.
+        minOffSec: 600            # Minimum OFF time before compressor may restart.
+        maxOnSec: 5400            # Maximum continuous ON time before forced rest, 90 min.
+        restOffSec: 900           # Forced rest duration after maxOnSec, 15 min.
+        restSkipDelta: 2.0        # Override rest if beer is > setpoint + this delta.
 
-connections:
-  - web.enable => Fridge.state  # Web UI to control Fridge state
+      logicCoeffs:
+        outerSensor: BeerSensor   # Beer sensor used for target fermentation temp.
+        innerSensor: FridgeSensor # Fridge/air sensor used to limit chamber temp.
+        innerMinTemp: 28.0        # Lowest allowed fridge/air temp command.
+        innerMaxTemp: 80.0        # Highest allowed fridge/air temp command.
+        baseScale: 0.5            # Base correction scale for inner loop target.
+        gain: 0.3                 # Correction gain based on beer temp error.
+        hysteresis: 0.3           # Deadband to reduce rapid toggling.
+        keepCold: true            # Cooling-side DualLoop behavior.
+
+  - DualLoopHeaterController:
+      plugin: DualLoopLogic       # DualLoopLogic used
+      logic: DualLoopLogic        # Explicit logic name used by this config style.
+      actor: Heating              # Must match an actor object name above.
+      sensor: BeerSensor          # Must match a sensor object name above.
+      automatic: false            # false = manual mode on startup; true = automatic on startup.
+      initialState: off           # Startup output state: off/on.
+      initialSetpoint: -18        # Startup heating setpoint. Low value prevents heating call.
+
+      powerGuard:
+        # Element protection / anti-short-cycle settings, in seconds.
+        minOnSec: 120             # Minimum ON time once compressor starts.
+        minOffSec: 120            # Minimum OFF time before compressor may restart.
+        # These three settings are not required for simple on/off heating elements/pads.
+        maxOnSec: 5400            # Maximum continuous ON time before forced rest, 90 min.
+        restOffSec: 900           # Forced rest duration after maxOnSec, 15 min.
+        restSkipDelta: 2.0        # Override rest if beer is > setpoint + this delta.
+        
+      logicCoeffs:
+        outerSensor: BeerSensor   # Beer sensor used for target fermentation temp.
+        innerSensor: FridgeSensor # Fridge/air sensor used to limit chamber temp.
+        innerMinTemp: 28.0        # Lowest allowed fridge/air temp command.
+        innerMaxTemp: 80.0        # Highest allowed fridge/air temp command.
+        baseScale: 0.5            # Base correction scale for inner loop target.
+        gain: 0.3                 # Correction gain based on beer temp error.
+        hysteresis: 0.3           # Deadband to reduce rapid toggling.
+        keepHot: true             # Heating-side DualLoop behavior.
+        
+  - PIDFridgeController:
+      # Cooling controller using PIDLogic.
+      plugin: PIDLogic            # PID logic plugin.
+      logic: PIDLogic             # Explicit logic name used by this config style.
+      actor: Cooling              # Must match an actor object name above.
+      sensor: BeerSensor          # Must match a sensor object name above.
+      automatic: false            # false = manual mode on startup; true = automatic on startup.
+      initialState: off           # Startup output state: off/on.
+      initialSetpoint: 99         # Startup cooling setpoint. High value prevents cooling call.
+      reload: yes                 # Reload saved runtime/controller state when supported.
+
+      powerGuard:
+        # Compressor protection / anti-short-cycle settings, in seconds.
+        minOnSec: 300             # Minimum ON time once compressor starts.
+        minOffSec: 600            # Minimum OFF time before compressor may restart.
+        maxOnSec: 5400            # Maximum continuous ON time before forced rest, 90 min.
+        restOffSec: 900           # Forced rest duration after maxOnSec, 15 min.
+        restSkipDelta: 2.0        # Override rest if beer is > setpoint + this delta.
+
+      logicCoeffs:
+        # PID tuning values.
+        p: 2.0                    # Proportional gain; reacts to current temp error.
+        i: 300.0                  # Integral time constant; corrects long-term offset. Larger = slower/weaker.
+        d: 0.0                    # Derivative gain; reacts to rate of change/damping.
+        
+  - PIDHeaterController:
+      # Heating controller using PIDLogic.
+      plugin: PIDLogic            # PID logic plugin.
+      logic: PIDLogic             # Explicit logic name used by this config style.
+      actor: Heating              # Must match an actor object name above.
+      sensor: BeerSensor          # Must match a sensor object name above.
+      automatic: false            # false = manual mode on startup; true = automatic on startup.
+      initialState: off           # Startup output state: off/on.
+      initialSetpoint: -18        # Startup heating setpoint. Low value prevents heating call.
+      reload: yes                 # Reload saved runtime/controller state when supported.
+
+      powerGuard:
+        # Element protection / anti-short-cycle settings, in seconds.
+        minOnSec: 120             # Minimum ON time once heater starts.
+        minOffSec: 120            # Minimum OFF time before heater may restart.
+        # These three settings are not required for simple on/off heating elements/pads.
+        maxOnSec: 5400            # Maximum continuous ON time before forced rest, 90 min.
+        restOffSec: 900           # Forced rest duration after maxOnSec, 15 min.
+        restSkipDelta: 2.0        # Usually more useful for cooling; keep only if your PowerGuard expects it.
+
+      logicCoeffs:
+        # PID tuning values.
+        p: 2.0                    # Proportional gain; reacts to current temp error.
+        i: 300.0                  # Integral time constant; corrects long-term offset. Larger = slower/weaker.
+        d: 0.0                    # Derivative gain; reacts to rate of change/damping.
+ 
