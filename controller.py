@@ -179,8 +179,6 @@ class Controller(interfaces.Component, interfaces.Runnable):
             return "MAX_ON_REST"
         if reason.startswith("REST active"):
             return "REST_ACTIVE"
-        if reason.startswith("REST override"):
-            return "REST_OVERRIDE"
         if reason.startswith("Hold"):
             return "HOLD"
         return "UNKNOWN"
@@ -195,7 +193,7 @@ class Controller(interfaces.Component, interfaces.Runnable):
         guard_state = self._guard_state
         remaining = int(self._guard_remaining_sec or 0)
 
-        mode_word = "Automatic" if self._autoMode else "Manual"
+        mode_word = "Auto" if self._autoMode else "Manual"
 
         if not self._enabled:
             return "Disabled"
@@ -207,15 +205,13 @@ class Controller(interfaces.Component, interfaces.Runnable):
 
         # PowerGuard states first, even in Manual mode
         if guard_state == "MIN_ON_BLOCK":
-            return f"{mode_word}; holding ON ({remaining}s remaining)"
+            return f"{mode_word}; holding ON ({remaining}s left)"
         if guard_state == "MIN_OFF_BLOCK":
-            return f"{mode_word}; waiting to restart ({remaining}s remaining)"
+            return f"{mode_word}; waiting to restart ({remaining}s left)"
         if guard_state == "REST_ACTIVE":
-            return f"{mode_word}; forced rest ({remaining}s remaining)"
+            return f"{mode_word}; forced rest ({remaining}s left)"
         if guard_state == "MAX_ON_REST":
-            return f"{mode_word}; rest started ({remaining}s remaining)"
-        if guard_state == "REST_OVERRIDE":
-            return f"{mode_word}; rest override; output ON"
+            return f"{mode_word}; rest started ({remaining}s left)"
         if guard_state == "TURN_ON":
             return f"{mode_word}; output turned ON"
         if guard_state == "TURN_OFF":
@@ -223,13 +219,13 @@ class Controller(interfaces.Component, interfaces.Runnable):
 
         # Normal behavior
         if requested_on and applied_on:
-            return f"{mode_word}; request ON; output ON"
+            return f"{mode_word}; req ON; output ON"
         if (not requested_on) and (not applied_on):
-            return f"{mode_word}; request OFF; output OFF"
+            return f"{mode_word}; req OFF; output OFF"
         if requested_on and (not applied_on):
-            return f"{mode_word}; request ON; blocked ({remaining}s remaining)"
+            return f"{mode_word}; req ON; blocked ({remaining}s left)"
         if (not requested_on) and applied_on:
-            return f"{mode_word}; request OFF; holding ON ({remaining}s remaining)"
+            return f"{mode_word}; req OFF; holding ON ({remaining}s left)"
 
         # Manual fallback
         if not self._autoMode:
@@ -454,7 +450,7 @@ class Controller(interfaces.Component, interfaces.Runnable):
         except Exception as e:
             logger.error(f"Failed to load history for {self.name}: {e}")
 
-    # Apply compressor-safe timing and optional long-run rest.
+    # Apply compressor-safe timing and long-run rest.
     # This does NOT change the control logic output; it only gates what we actually apply to the actor.
     def _apply_power_guard(self, requested_power, current_temp=None):
         guard = self.power_guard or {}
@@ -463,7 +459,6 @@ class Controller(interfaces.Component, interfaces.Runnable):
         min_off = float(guard.get('minOffSec', 300))
         max_on = guard.get('maxOnSec', None)
         rest_off = float(guard.get('restOffSec', 900))
-        rest_skip_delta = guard.get('restSkipDelta', None)
 
         now = time()
         requested_on = float(requested_power) >= 50.0
@@ -476,25 +471,9 @@ class Controller(interfaces.Component, interfaces.Runnable):
 
         remaining_sec = 0
 
-        def rest_override_allowed():
-            if rest_skip_delta is None:
-                return False
-            try:
-                if current_temp is None:
-                    return False
-                return float(current_temp) > (float(self.targetTemp) + float(rest_skip_delta))
-            except Exception:
-                return False
-
         if rest_until > now:
             remaining_sec = max(0, int(rest_until - now))
-            if requested_on and rest_override_allowed():
-                st['rest_until'] = 0.0
-                rest_until = 0.0
-                reason = f"REST override (temp {current_temp} > setpoint {self.targetTemp} + {rest_skip_delta})"
-                return 100.0, reason, 0
-            else:
-                return 0.0, f"REST active until {rest_until:.0f}", remaining_sec
+            return 0.0, f"REST active until {rest_until:.0f}", remaining_sec
 
         if requested_on != current_on:
             if requested_on:
